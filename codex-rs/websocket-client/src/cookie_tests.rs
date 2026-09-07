@@ -200,7 +200,7 @@ async fn websocket_handshakes_share_routing_cookies_and_respect_cookie_scope() {
             request.headers_mut().insert(COOKIE, pin);
         }
         let result = connector
-            .connect_with_route(
+            .connect_with_route_inner(
                 request,
                 WebSocketConfig::default(),
                 std::future::ready(Ok(OutboundProxyRoute::Proxy {

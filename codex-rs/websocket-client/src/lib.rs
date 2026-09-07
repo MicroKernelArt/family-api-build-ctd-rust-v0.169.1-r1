@@ -136,7 +136,7 @@ impl WebSocketConnector {
         let route = self
             .http_client_factory
             .resolve_proxy_route_async(request.uri().to_string());
-        self.connect_with_route(request, config, route, /*loopback_direct*/ false)
+        self.connect_with_route_inner(request, config, route, /*loopback_direct*/ false)
             .await
     }
 
@@ -153,7 +153,7 @@ impl WebSocketConnector {
                 "direct WebSocket connections require a loopback destination",
             )));
         }
-        self.connect_with_route(
+        self.connect_with_route_inner(
             request,
             config,
             std::future::ready(Ok(OutboundProxyRoute::Direct)),
@@ -162,7 +162,29 @@ impl WebSocketConnector {
         .await
     }
 
-    async fn connect_with_route(
+    /// Connects a WebSocket using an explicit sidecar-selected route
+    /// (TLS-CTD-001 FR-016 / FR-017).
+    ///
+    /// The route is pinned by the caller (per-account proxy route from Go);
+    /// system discovery and process environment proxies are never consulted.
+    /// `Direct` bypasses all environment proxy handling; a `Proxy { url }`
+    /// route failure never falls back to direct.
+    pub async fn connect_with_route(
+        &self,
+        request: Request,
+        config: WebSocketConfig,
+        proxy_route: OutboundProxyRoute,
+    ) -> Result<(WebSocketConnection, Response), WebSocketError> {
+        self.connect_with_route_inner(
+            request,
+            config,
+            std::future::ready(Ok(proxy_route)),
+            /*loopback_direct*/ false,
+        )
+        .await
+    }
+
+    async fn connect_with_route_inner(
         &self,
         mut request: Request,
         config: WebSocketConfig,
