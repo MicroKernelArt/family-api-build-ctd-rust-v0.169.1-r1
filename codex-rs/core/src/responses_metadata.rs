@@ -65,7 +65,11 @@ pub(crate) const WORKSPACES_KEY: &str = "workspaces";
 
 // App-server clients can specify additional metadata in the `responsesapi_client_metadata` param
 // when submitting a turn, but they must not override fields owned by core.
-const RESERVED_METADATA_KEYS: &[&str] = &[
+///
+/// R-METADATA-001（replay_0831 R6）：这是保留键的单一事实来源——transportd
+/// sidecar 的 `client_metadata` 校验直接采用本列表（含
+/// `x-codex-parent-thread-id`），core 新增保留键时 sidecar 自动 fail closed。
+pub const RESERVED_METADATA_KEYS: &[&str] = &[
     "guardian_credits_requested",
     "guardian_recorded_items",
     MCP_ATTRIBUTION_CLIENT_METADATA_KEY,
@@ -277,6 +281,23 @@ pub struct CodexResponsesMetadata {
     pub(crate) extra: BTreeMap<String, String>,
 }
 
+/// Error returned by [`CodexResponsesMetadata::try_for_transport`].
+///
+/// The transport sidecar constructs the official metadata projection from a
+/// validated immutable snapshot; every identity field must be well-formed
+/// before any upstream I/O (TLS-CTD-001 FR-009).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum TransportMetadataError {
+    #[error("session_id must be a UUIDv7: {0}")]
+    InvalidSessionId(String),
+    #[error("thread_id must be a UUIDv7: {0}")]
+    InvalidThreadId(String),
+    #[error("window_id must be `<thread-id>:<positive integer>`: {0}")]
+    InvalidWindowId(String),
+    #[error("window_id thread prefix must equal thread_id: {0}")]
+    WindowThreadMismatch(String),
+}
+
 impl CodexResponsesMetadata {
     pub(crate) fn new(
         installation_id: String,
@@ -323,6 +344,49 @@ impl CodexResponsesMetadata {
         }
     }
 
+    /// Narrow constructor for the transport sidecar.
+    ///
+    /// Validates that `session_id` and `thread_id` are UUIDv7 and that
+    /// `window_id` matches `<thread-id>:<positive integer>` with a thread
+    /// prefix identical to `thread_id`. All reserved metadata fields are
+    /// derived from this single snapshot; callers cannot inject originator,
+    /// beta, turn state or other reserved keys through this constructor.
+    pub fn try_for_transport(
+        installation_id: String,
+        session_id: String,
+        thread_id: String,
+        window_id: String,
+    ) -> Result<Self, TransportMetadataError> {
+        fn is_uuidv7(value: &str) -> bool {
+            Uuid::parse_str(value)
+                .map(|uuid| uuid.get_version_num() == 7)
+                .unwrap_or(false)
+        }
+        fn is_positive_integer(value: &str) -> bool {
+            !value.is_empty()
+                && value.bytes().all(|b| b.is_ascii_digit())
+                && value.parse::<u64>().is_ok_and(|n| n > 0)
+        }
+
+        if !is_uuidv7(&session_id) {
+            return Err(TransportMetadataError::InvalidSessionId(session_id));
+        }
+        if !is_uuidv7(&thread_id) {
+            return Err(TransportMetadataError::InvalidThreadId(thread_id));
+        }
+        let (window_thread, window_seq) = window_id
+            .split_once(':')
+            .ok_or_else(|| TransportMetadataError::InvalidWindowId(window_id.clone()))?;
+        if window_thread != thread_id {
+            return Err(TransportMetadataError::WindowThreadMismatch(window_id.clone()));
+        }
+        if !is_positive_integer(window_seq) {
+            return Err(TransportMetadataError::InvalidWindowId(window_id));
+        }
+
+        Ok(Self::new(installation_id, session_id, thread_id, window_id))
+    }
+
     pub(crate) fn has_turn_metadata(&self) -> bool {
         self.request_kind.is_some()
     }
@@ -335,7 +399,7 @@ impl CodexResponsesMetadata {
         serde_json::to_value(self.turn_metadata_payload()).ok()
     }
 
-    pub(crate) fn client_metadata(&self, include_internal: bool) -> HashMap<String, String> {
+    pub fn client_metadata(&self, include_internal: bool) -> HashMap<String, String> {
         let mut client_metadata = HashMap::from([
             (
                 X_CODEX_INSTALLATION_ID_HEADER.to_string(),
@@ -387,7 +451,7 @@ impl CodexResponsesMetadata {
         client_metadata
     }
 
-    pub(crate) fn compatibility_headers(&self) -> ApiHeaderMap {
+    pub fn compatibility_headers(&self) -> ApiHeaderMap {
         let mut headers = ApiHeaderMap::new();
         insert_header(&mut headers, X_CODEX_WINDOW_ID_HEADER, &self.window_id);
         // Direct x-codex-turn-metadata is compatibility output. Keep the unbounded tool inventory

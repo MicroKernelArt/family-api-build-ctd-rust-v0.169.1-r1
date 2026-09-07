@@ -30,6 +30,7 @@ pub use codex_protocol::turn_input::TurnInputRequest;
 pub use codex_protocol::turn_input::TurnInputSubmission;
 pub use codex_protocol::turn_input::TurnStartOptions;
 pub use responses_metadata::CodexResponsesMetadata;
+pub use responses_metadata::RESERVED_METADATA_KEYS;
 pub use turn_metadata::detached_memory_responses_metadata;
 mod codex_thread;
 mod thread_input;
