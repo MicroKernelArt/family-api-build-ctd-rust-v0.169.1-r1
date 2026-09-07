@@ -194,9 +194,18 @@ jobs:
             export CARGO_BUILD_JOBS=4
           fi
           printf '%s\n' "$CODEX_VOICE_RUNTIME_RELATIVE" > "$archive_dir/voice-runtime-path.txt"
+          # R-PLATFORM-001：Unix-only crate 明确退出 Windows 全 workspace
+          # 测试档案（UDS server / Unix fd capture writer 不以 Windows 为
+          # 目标平台，不伪装支持）；受支持的 Unix 目标档案保持完整覆盖。
+          # 策略 gate：codex-rs/scripts/check-platform-archives.sh
+          archive_excludes=()
+          case "${CODEX_CI_TARGET}" in
+            *-pc-windows-msvc) archive_excludes+=(--exclude codex-transportd) ;;
+          esac
           cargo nextest --tool-config-file "codex-voice:$CODEX_VOICE_NEXTEST_CONFIG" archive \
             --target "${CODEX_CI_TARGET}" \
             --cargo-profile "${CODEX_CI_PROFILE}" \
+            "${archive_excludes[@]}" \
             --timings \
             --archive-file "${archive_dir}/${NEXTEST_ARCHIVE_FILE}"
 
