@@ -1,6 +1,6 @@
 //! Compact 原始适配（TLS-CTD-001 §12.2 / FR-012）。
 //!
-//! Rust 只执行官方 raw compact（`CompactClient::execute_raw`）并原样返回
+//! Rust 只执行官方 raw compact（`ResponsesClient::execute_raw_compact`）并原样返回
 //! upstream status/headers/body；window advance 由 Go 在完整成功判定后
 //! 执行（Rust 绝不推进 Go window）。
 
@@ -86,12 +86,12 @@ pub async fn execute_compact_raw(
     let auth = official_adapter::official_auth(ctx);
     let provider = official_adapter::chatgpt_provider();
     let api_client =
-        codex_api::CompactClient::new(official_adapter::transport_for(client), provider, auth);
+        codex_api::ResponsesClient::new(official_adapter::transport_for(client), provider, auth);
 
     // R6（R-TRANSPORT-001）：terminal non-2xx 原样保留（不映射为本地
     // 错误→502），attempt 次数来自官方 retry 循环的真实值。
     let outcome = api_client
-        .execute_raw(value, headers, COMPACT_REQUEST_TIMEOUT, None)
+        .execute_raw_compact(value, headers, COMPACT_REQUEST_TIMEOUT)
         .await
         .map_err(|err| responses::map_api_error(err, "compact"))?;
     let response = outcome.value;

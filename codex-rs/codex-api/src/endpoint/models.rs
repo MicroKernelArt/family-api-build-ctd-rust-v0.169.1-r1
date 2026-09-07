@@ -67,6 +67,28 @@ impl<T: HttpTransport> ModelsClient<T> {
     }
 
     /// Fetches and decodes a catalog, optionally bounding response bytes before decoding.
+    /// Raw models execution for the transport sidecar (TLS-CTD-001 FR-011).
+    ///
+    /// Returns the upstream status, headers and body bytes untouched so the
+    /// caller keeps its own models parsing/caching.
+    pub async fn execute_raw(
+        &self,
+        request_url: String,
+        extra_headers: HeaderMap,
+    ) -> Result<codex_client::Response, ApiError> {
+        self.session
+            .execute_with(
+                Method::GET,
+                Self::path(),
+                extra_headers,
+                /*body*/ None,
+                move |req| {
+                    req.url.clone_from(&request_url);
+                },
+            )
+            .await
+    }
+
     pub async fn list_models(
         &self,
         request_url: String,

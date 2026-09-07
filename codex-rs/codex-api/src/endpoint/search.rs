@@ -31,6 +31,23 @@ impl<T: HttpTransport> SearchClient<T> {
         }
     }
 
+    fn path() -> &'static str {
+        "alpha/search"
+    }
+
+    /// Raw alpha-search execution for the transport sidecar (TLS-CTD-001 FR-011).
+    ///
+    /// Returns the upstream status, headers and body bytes untouched.
+    pub async fn execute_raw(
+        &self,
+        body: serde_json::Value,
+        extra_headers: HeaderMap,
+    ) -> Result<codex_client::Response, ApiError> {
+        self.session
+            .execute(Method::POST, Self::path(), extra_headers, Some(body))
+            .await
+    }
+
     pub async fn search(
         &self,
         request: &SearchRequest,

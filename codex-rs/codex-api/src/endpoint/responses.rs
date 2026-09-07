@@ -4,10 +4,10 @@ use crate::common::ResponsesApiRequest;
 use crate::endpoint::session::EndpointSession;
 use crate::error::ApiError;
 use crate::provider::Provider;
-use crate::requests::Compression;
 use crate::requests::headers::build_session_headers;
 use crate::requests::headers::insert_header;
 use crate::requests::headers::subagent_header;
+use crate::requests::Compression;
 use crate::sse::spawn_response_stream;
 use crate::telemetry::SseTelemetry;
 use codex_client::EncodedJsonBody;
@@ -21,6 +21,7 @@ use http::Method;
 use serde_json::Value;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::Duration;
 use tracing::instrument;
 
 pub struct ResponsesClient<T: HttpTransport> {
@@ -117,6 +118,85 @@ impl<T: HttpTransport> ResponsesClient<T> {
         let body = EncodedJsonBody::encode(&body)
             .map_err(|e| ApiError::Stream(format!("failed to encode responses request: {e}")))?;
         self.stream_encoded(body, extra_headers, compression, turn_state)
+            .await
+    }
+
+    /// Raw upstream Responses stream for the transport sidecar
+    /// (TLS-CTD-001 FR-011, R6 preservation).
+    ///
+    /// Returns the upstream status, headers and byte stream untouched — no SSE
+    /// parsing or re-serialization. Terminal non-2xx responses (e.g. 403, or
+    /// 429/5xx after the official retry budget) are returned as `Ok` with
+    /// their exact body and the real attempt count, so the sidecar can relay
+    /// them byte-for-byte with `x-ctd-origin: upstream`.
+    #[instrument(
+        name = "responses.stream_raw",
+        level = "info",
+        skip_all,
+        fields(
+            transport = "responses_http",
+            http.method = "POST",
+            api.path = "responses",
+            turn.has_state = turn_state.is_some()
+        )
+    )]
+    pub async fn stream_raw(
+        &self,
+        body: Value,
+        extra_headers: HeaderMap,
+        compression: Compression,
+        turn_state: Option<Arc<OnceLock<String>>>,
+    ) -> Result<codex_client::RawRetryOutcome<codex_client::StreamResponse>, ApiError> {
+        let body = EncodedJsonBody::encode(&body)
+            .map_err(|e| ApiError::Stream(format!("failed to encode responses request: {e}")))?;
+        let request_compression = match compression {
+            Compression::None => RequestCompression::None,
+            Compression::Zstd => RequestCompression::Zstd,
+        };
+        self.session
+            .stream_raw_with(
+                Method::POST,
+                "/responses",
+                extra_headers,
+                Some(body),
+                |req| {
+                    req.headers.insert(
+                        http::header::ACCEPT,
+                        HeaderValue::from_static("text/event-stream"),
+                    );
+                    req.compression = request_compression;
+                },
+            )
+            .await
+    }
+
+    /// Raw upstream compact execution for the transport sidecar
+    /// (TLS-CTD-001 FR-012, R6 preservation).
+    ///
+    /// Upstream removed the dedicated `CompactClient` when it dropped the
+    /// legacy remote compaction implementation; the `responses/compact` route is
+    /// owned by the responses client here. Returns the upstream status, headers
+    /// and body bytes untouched. Terminal non-2xx responses (e.g. 403, or
+    /// 429/5xx after the official retry budget) are returned as `Ok` with the
+    /// real attempt count. The caller (Go) decides window advance only on a
+    /// confirmed complete 2xx success; timeout/EOF/5xx/parse failure never
+    /// advance.
+    pub async fn execute_raw_compact(
+        &self,
+        body: Value,
+        extra_headers: HeaderMap,
+        request_timeout: Duration,
+    ) -> Result<codex_client::RawRetryOutcome<codex_client::Response>, ApiError> {
+        self.session
+            .execute_raw_with(
+                Method::POST,
+                "/responses/compact",
+                extra_headers,
+                Some(body),
+                |req| {
+                    req.timeout = Some(request_timeout);
+                },
+            )
             .await
     }
 

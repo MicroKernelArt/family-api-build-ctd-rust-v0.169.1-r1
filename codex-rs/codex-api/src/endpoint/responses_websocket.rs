@@ -21,6 +21,8 @@ use crate::telemetry::WebsocketTelemetry;
 use bytes::Bytes;
 use codex_client::TransportError;
 use codex_http_client::HttpClientFactory;
+use codex_http_client::OutboundProxyPolicy;
+use codex_http_client::OutboundProxyRoute;
 use codex_http_client::RetryAfter;
 use codex_websocket_client::WebSocketConnection;
 use codex_websocket_client::WebSocketConnector;
@@ -482,6 +484,115 @@ impl ResponsesWebsocketClient {
             telemetry,
         )
         .await
+    }
+
+    /// Connects the Responses WebSocket using an explicit sidecar-selected
+    /// proxy route (TLS-CTD-001 FR-016 / FR-017).
+    ///
+    /// Same URL/header/auth construction as [`Self::connect`] but the route is
+    /// pinned by the caller (per-account proxy route from Go); system
+    /// discovery and environment proxies are never consulted, and a proxy
+    /// failure never falls back to direct.
+    pub async fn connect_with_route(
+        &self,
+        proxy_route: OutboundProxyRoute,
+        extra_headers: HeaderMap,
+        default_headers: HeaderMap,
+        turn_state: Option<Arc<OnceLock<String>>>,
+        telemetry: Option<Arc<dyn WebsocketTelemetry>>,
+    ) -> Result<ResponsesWebsocketConnection, ApiError> {
+        let ws_url = self
+            .provider
+            .websocket_url_for_path("/responses")
+            .map_err(|err| ApiError::Stream(format!("failed to build websocket URL: {err}")))?;
+
+        let mut headers =
+            merge_request_headers(&self.provider.headers, extra_headers, default_headers);
+        self.auth.add_auth_headers(&mut headers);
+
+        let mut request = ws_url
+            .as_str()
+            .into_client_request()
+            .map_err(|err| ApiError::Stream(format!("failed to build websocket request: {err}")))?;
+        request.headers_mut().extend(headers);
+
+        // The route is explicit; the factory policy is never consulted by
+        // `connect_with_route` (it only supplies TLS config + custom CA).
+        let factory = HttpClientFactory::new(OutboundProxyPolicy::ReqwestDefault);
+        let connector = WebSocketConnector::new(&factory)
+            .map_err(|err| ApiError::Stream(format!("failed to configure websocket TLS: {err}")))?;
+        let (stream, response) = connector
+            .connect_with_route(request, websocket_config(), proxy_route)
+            .await
+            .map_err(|err| map_ws_error(err, &ws_url))?;
+
+        let reasoning_included = response.headers().contains_key(X_REASONING_INCLUDED_HEADER);
+        let models_etag = response
+            .headers()
+            .get(X_MODELS_ETAG_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .map(ToString::to_string);
+        let _server_model = response
+            .headers()
+            .get(OPENAI_MODEL_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .map(ToString::to_string);
+        if let Some(turn_state) = turn_state
+            && let Some(header_value) = response
+                .headers()
+                .get(X_CODEX_TURN_STATE_HEADER)
+                .and_then(|value| value.to_str().ok())
+        {
+            let _ = turn_state.set(header_value.to_string());
+        }
+        Ok(ResponsesWebsocketConnection::new(
+            WsStream::new(stream),
+            self.provider.stream_idle_timeout,
+            reasoning_included,
+            models_etag,
+            telemetry,
+        ))
+    }
+
+    /// Sidecar raw mode（P-015）：与 [`Self::connect_with_route`] 完全相同的
+    /// URL/header/auth/TLS/显式 route 构造，但返回原始
+    /// `WebSocketConnection` + 握手响应，不做 WsStream/telemetry 包装——
+    /// transportd 1:1 relay 需要原始帧通道。
+    pub async fn connect_raw_with_route(
+        &self,
+        proxy_route: OutboundProxyRoute,
+        extra_headers: HeaderMap,
+        default_headers: HeaderMap,
+    ) -> Result<
+        (
+            WebSocketConnection,
+            tokio_tungstenite::tungstenite::handshake::client::Response,
+        ),
+        ApiError,
+    > {
+        let ws_url = self
+            .provider
+            .websocket_url_for_path("/responses")
+            .map_err(|err| ApiError::Stream(format!("failed to build websocket URL: {err}")))?;
+
+        let mut headers =
+            merge_request_headers(&self.provider.headers, extra_headers, default_headers);
+        self.auth.add_auth_headers(&mut headers);
+
+        let mut request = ws_url
+            .as_str()
+            .into_client_request()
+            .map_err(|err| ApiError::Stream(format!("failed to build websocket request: {err}")))?;
+        request.headers_mut().extend(headers);
+
+        let factory = HttpClientFactory::new(OutboundProxyPolicy::ReqwestDefault);
+        let connector = WebSocketConnector::new(&factory)
+            .map_err(|err| ApiError::Stream(format!("failed to configure websocket TLS: {err}")))?;
+        let (stream, response) = connector
+            .connect_with_route(request, websocket_config(), proxy_route)
+            .await
+            .map_err(|err| map_ws_error(err, &ws_url))?;
+        Ok((stream, response))
     }
 
     /// Opens a WebSocket connection long enough to validate the upgrade response.
