@@ -478,7 +478,7 @@ pub(crate) fn create_raw_auth_client(
 }
 
 /// Builds the default Codex HTTP client wrapper for an auth endpoint.
-pub(crate) fn create_default_auth_client(
+pub fn create_default_auth_client(
     endpoint: &str,
     auth_route_config: &AuthRouteConfig,
 ) -> Result<HttpClient, BuildRouteAwareHttpClientError> {

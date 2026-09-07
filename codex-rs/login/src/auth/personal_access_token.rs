@@ -8,7 +8,8 @@ use std::fmt;
 use crate::default_client::create_default_auth_client;
 use crate::outbound_proxy::AuthRouteConfig;
 
-const PROD_AUTHAPI_BASE_URL: &str = "https://auth.openai.com/api/accounts";
+/// 官方 auth API base(P1 auth 平面固定端点)。
+pub const PROD_AUTHAPI_BASE_URL: &str = "https://auth.openai.com/api/accounts";
 const CODEX_AUTHAPI_BASE_URL_ENV_VAR: &str = "CODEX_AUTHAPI_BASE_URL";
 const WHOAMI_PATH: &str = "/v1/user-auth-credential/whoami";
 
@@ -125,7 +126,8 @@ async fn hydrate_personal_access_token(
     })
 }
 
-fn whoami_endpoint(authapi_base_url: &str) -> String {
+/// 官方 PAT whoami 端点(固定路径,供 transport sidecar 使用;TLS-CTD-001 P1 auth)。
+pub fn whoami_endpoint(authapi_base_url: &str) -> String {
     format!("{}{WHOAMI_PATH}", authapi_base_url.trim_end_matches('/'))
 }
 

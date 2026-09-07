@@ -1901,7 +1901,7 @@ pub fn oauth_client_id() -> String {
         .unwrap_or_else(|| CLIENT_ID.to_string())
 }
 
-fn refresh_token_endpoint(provenance: Option<&AccountOAuthProvenance>) -> String {
+pub fn refresh_token_endpoint(provenance: Option<&AccountOAuthProvenance>) -> String {
     std::env::var(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR).unwrap_or_else(|_| {
         provenance
             .map(|provenance| format!("{}/oauth/token", provenance.issuer.trim_end_matches('/')))

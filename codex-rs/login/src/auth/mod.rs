@@ -9,6 +9,8 @@ pub mod default_client;
 pub mod error;
 mod personal_access_token;
 mod source;
+pub use personal_access_token::whoami_endpoint;
+pub use personal_access_token::PROD_AUTHAPI_BASE_URL;
 mod storage;
 mod util;
 mod workload_identity;
