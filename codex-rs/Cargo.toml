@@ -89,6 +89,7 @@ members = [
     "lmstudio",
     "login",
     "codex-mcp",
+    "codex-transportd",
     "memories/read",
     "memories/write",
     "mermaid",
@@ -487,7 +488,7 @@ semver = "1.0"
 sentry = "0.46.0"
 serde = { version = "1", features = ["rc"] }
 serde_ignored = "0.1.14"
-serde_json = "1"
+serde_json = { version = "1", features = ["arbitrary_precision"] }
 serde_path_to_error = "0.1.20"
 serde_with = "3.17"
 serde_yaml = "0.9"

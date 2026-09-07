@@ -1,0 +1,10 @@
+schema: family-api/replay-line/v2
+manifest_status: partial-at-product-commit  # 仅头部；source 与逐提交清单由证据提交生成
+line: replay0905-v0159
+repository: family-api-codex
+upstream_tag: rust-v0.159.0
+upstream_tag_object: 377f7f557a6bdea0f3a2d26d4d899c66db4789d0
+base_commit: 687a119f0fcaace47e1f1abcc77cec6c813fd6da
+# 本文件在**产品提交**里只声明上游基线与线名：source_commit/source_tree 与
+# 逐提交 (commit, tree) 清单是**自引用**的，由证据提交从实际链生成后写入
+# （见 patches/transportd/series.yaml 与证据提交的 replay/manifest.yaml）。

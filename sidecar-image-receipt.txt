@@ -1,0 +1,12 @@
+image:                    weishaw/codex-transportd:build
+platform:                 linux/amd64
+arch:                     amd64
+triple:                   x86_64-unknown-linux-gnu
+digest:                   sha256:b8dc9aa7d9ec1bc7124031cdca267f4cc2c3229a40c08a5c96ffc2e4f77ee719
+release_id:               ctd-rust-v0.144.1-r2
+source_commit:            8ab4773c7f5e11ae3baf6c85b3250218a03f8a0b
+build_invocation_commit:  c6ddf1d259f911ce8ad4b783dc453c64ad3307bd
+build_mode:               local-cargo
+lock_sha256:              70482f90e3fd7b8c2b5baad7b47f44956d000998d1812da5b6ff68d6073b9bc6
+v8_sha256:                8aed98637db7e77dc8bfb8bb4759ec5bde472d0bf7943f58e0e62a350945c559
+build:                    2026-08-18T08:03:20Z
