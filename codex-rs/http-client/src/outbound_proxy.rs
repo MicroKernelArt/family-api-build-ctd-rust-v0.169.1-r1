@@ -340,6 +340,33 @@ impl HttpClientFactory {
     }
 }
 
+/// Builds a reqwest client for an explicit sidecar-selected route
+/// (TLS-CTD-001 FR-016 / FR-017).
+///
+/// Unlike [`HttpClientFactory::build_reqwest_client`], this never consults
+/// system discovery or process environment proxies: `Direct` forces
+/// `.no_proxy()` (ignoring `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`), and
+/// `Proxy { url }` pins the exact route. Any other route value fails closed.
+/// Errors are returned without trying a different route — a proxy failure
+/// never falls back to direct.
+pub fn build_reqwest_client_for_explicit_route(
+    builder: reqwest::ClientBuilder,
+    route: &OutboundProxyRoute,
+    route_class: ClientRouteClass,
+) -> Result<reqwest::Client, BuildRouteAwareHttpClientError> {
+    let builder = match route {
+        OutboundProxyRoute::Direct => builder.no_proxy(),
+        OutboundProxyRoute::Proxy { url, no_proxy } => {
+            let no_proxy = no_proxy.as_deref().and_then(reqwest::NoProxy::from_string);
+            configure_concrete_proxy(builder, route_class, url, no_proxy)?
+        }
+        OutboundProxyRoute::TransportDefault => {
+            return Err(BuildRouteAwareHttpClientError::InvalidProxyConfig { route_class });
+        }
+    };
+    build_reqwest_client_with_custom_ca(builder).map_err(Into::into)
+}
+
 fn resolve_proxy_route(
     env: &dyn EnvSource,
     request_url: &str,

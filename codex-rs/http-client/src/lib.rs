@@ -64,6 +64,7 @@ pub use crate::outbound_proxy::MacosSystemProxyConfiguration;
 pub use crate::outbound_proxy::OutboundProxyPolicy;
 pub use crate::outbound_proxy::OutboundProxyRoute;
 pub use crate::outbound_proxy::RouteFailureClass;
+pub use crate::outbound_proxy::build_reqwest_client_for_explicit_route;
 #[doc(hidden)]
 pub use crate::outbound_proxy::cache_system_proxy_route_for_test;
 #[cfg(target_os = "macos")]

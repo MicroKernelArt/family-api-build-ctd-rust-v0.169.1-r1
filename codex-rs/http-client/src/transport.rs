@@ -42,6 +42,25 @@ pub trait HttpTransport: Send + Sync {
         &self,
         req: Request,
     ) -> impl std::future::Future<Output = Result<StreamResponse, TransportError>> + Send;
+
+    /// Raw 形态（TLS-CTD-001 R6 / R-TRANSPORT-001）：任何上游 status 都返回
+    /// `Ok`，body 字节精确；terminal non-2xx 不映射为 `TransportError::Http`。
+    /// 默认实现退回 `execute` 的既有语义，既有实现无需改动。
+    fn execute_preserving_status(
+        &self,
+        req: Request,
+    ) -> impl std::future::Future<Output = Result<Response, TransportError>> + Send {
+        async move { self.execute(req).await }
+    }
+
+    /// 同 [`HttpTransport::execute_preserving_status`]，流式形态（body 逐块
+    /// 原样放行，terminal non-2xx 也可流式读取）。
+    fn stream_preserving_status(
+        &self,
+        req: Request,
+    ) -> impl std::future::Future<Output = Result<StreamResponse, TransportError>> + Send {
+        async move { self.stream(req).await }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -262,6 +281,53 @@ impl HttpTransport for ReqwestTransport {
             status,
             headers,
             bytes,
+        })
+    }
+
+    async fn execute_preserving_status(&self, req: Request) -> Result<Response, TransportError> {
+        if enabled!(Level::TRACE) {
+            trace!(
+                "{} to {}: {}",
+                req.method,
+                req.url,
+                request_body_for_trace(&req)
+            );
+        }
+
+        let resp = self.send(req).await?;
+        let status = resp.status();
+        let headers = resp.headers().clone();
+        let bytes = resp.bytes().await.map_err(Self::map_error)?;
+        Ok(Response {
+            status,
+            headers,
+            body: bytes,
+        })
+    }
+
+    async fn stream_preserving_status(
+        &self,
+        req: Request,
+    ) -> Result<StreamResponse, TransportError> {
+        if enabled!(Level::TRACE) {
+            trace!(
+                "{} to {}: {}",
+                req.method,
+                req.url,
+                request_body_for_trace(&req)
+            );
+        }
+
+        let resp = self.send(req).await?;
+        let status = resp.status();
+        let headers = resp.headers().clone();
+        let stream = resp
+            .bytes_stream()
+            .map(|result| result.map_err(Self::map_error));
+        Ok(StreamResponse {
+            status,
+            headers,
+            bytes: Box::pin(stream),
         })
     }
 }
