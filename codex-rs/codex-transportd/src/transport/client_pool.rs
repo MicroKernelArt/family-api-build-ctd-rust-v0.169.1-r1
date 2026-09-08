@@ -1,8 +1,10 @@
 //! 账号/凭据/代理隔离的官方 client 池（TLS-CTD-001 §14 / FR-016）。
 //!
 //! pool key = `(account_key, credential_revision, proxy_digest, route_class)`。
-//! 即使 HTTP Authorization 是每请求添加，官方 Cloudflare cookie store 与
-//! 连接池也绝不跨账号共享。旧 credential revision 的条目按 TTL/容量淘汰。
+//! 连接池按 `(account, revision, proxy, route_class)` 隔离；Cloudflare cookie store
+//! 是官方设计的进程级共享 jar，但只允许 CF 基础设施 cookie 名（`cf_clearance`、
+//! `__cf_bm` 等），账号/session cookie 一律被过滤，共享面不含账号凭据。
+//! 旧 credential revision 的条目按 TTL/容量淘汰。
 
 use std::collections::HashMap;
 use std::time::Instant;
