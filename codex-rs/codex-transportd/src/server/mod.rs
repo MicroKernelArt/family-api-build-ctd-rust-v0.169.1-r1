@@ -115,17 +115,25 @@ pub async fn serve(config: Config) -> Result<(), String> {
     }
 
     let app = router().with_state(state);
+    let connection_slots = Arc::new(Semaphore::new(limits::MAX_UDS_CONNECTIONS));
 
     loop {
+        let permit = connection_slots
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| format!("UDS connection semaphore closed: {err}"))?;
         let (stream, _addr) = match listener.accept().await {
             Ok(accepted) => accepted,
             Err(err) => {
+                drop(permit);
                 tracing::error!(error = %err, "uds accept failed");
                 continue;
             }
         };
         let app = app.clone();
         tokio::spawn(async move {
+            let _connection_permit = permit;
             let io = TokioIo::new(stream);
             let service = hyper_util::service::TowerToHyperService::new(app);
             // upgrade 支持（WS 依赖）：serve_connection_with_upgrades 在 101

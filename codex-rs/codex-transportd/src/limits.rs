@@ -5,6 +5,9 @@
 /// 全局并发 in-flight 请求上限。
 pub const MAX_INFLIGHT: usize = 64;
 
+/// UDS accepted connection 上限（包含尚未完成请求头解析的连接）。
+pub const MAX_UDS_CONNECTIONS: usize = 128;
+
 /// WS 并发连接上限（1:1）。
 pub const MAX_WS_CONNECTIONS: usize = 32;
 
@@ -46,6 +49,7 @@ mod tests {
     fn limits_are_static_and_positive() {
         // const 断言在编译期验证（避免 clippy constant assertion）。
         const _: () = assert!(MAX_INFLIGHT > 0);
+        const _: () = assert!(MAX_UDS_CONNECTIONS > 0);
         const _: () = assert!(MAX_WS_CONNECTIONS > 0);
         const _: () = assert!(MAX_BODY_BYTES > 0);
         const _: () = assert!(MAX_HEADER_BYTES > 0);
