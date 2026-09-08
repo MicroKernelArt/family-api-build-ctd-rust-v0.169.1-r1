@@ -285,14 +285,7 @@ impl HttpTransport for ReqwestTransport {
     }
 
     async fn execute_preserving_status(&self, req: Request) -> Result<Response, TransportError> {
-        if enabled!(Level::TRACE) {
-            trace!(
-                "{} to {}: {}",
-                req.method,
-                req.url,
-                request_body_for_trace(&req)
-            );
-        }
+        self.trace_request(&req);
 
         let resp = self.send(req).await?;
         let status = resp.status();
@@ -309,14 +302,7 @@ impl HttpTransport for ReqwestTransport {
         &self,
         req: Request,
     ) -> Result<StreamResponse, TransportError> {
-        if enabled!(Level::TRACE) {
-            trace!(
-                "{} to {}: {}",
-                req.method,
-                req.url,
-                request_body_for_trace(&req)
-            );
-        }
+        self.trace_request(&req);
 
         let resp = self.send(req).await?;
         let status = resp.status();

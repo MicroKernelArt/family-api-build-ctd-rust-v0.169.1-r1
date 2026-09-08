@@ -14,11 +14,13 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tracing_subscriber::Layer;
 use tracing_subscriber::layer::SubscriberExt;
-
-
 #[tokio::test]
 async fn enabled_request_logging_emits_transport_url_and_body() {
-    let logs = capture_transport_logs(HttpClient::new(test_reqwest_client())).await;
+    let logs = capture_transport_logs(
+        HttpClient::new(test_reqwest_client()),
+        LoggedRequestShape::Execute,
+    )
+    .await;
 
     assert!(logs.contains("log capture sentinel"));
     assert!(logs.contains("url-secret"));
@@ -27,9 +29,11 @@ async fn enabled_request_logging_emits_transport_url_and_body() {
 
 #[tokio::test]
 async fn disabled_request_logging_suppresses_transport_url_and_body() {
-    let logs =
-        capture_transport_logs(HttpClient::new(test_reqwest_client()).without_request_logging())
-            .await;
+    let logs = capture_transport_logs(
+        HttpClient::new(test_reqwest_client()).without_request_logging(),
+        LoggedRequestShape::Execute,
+    )
+    .await;
 
     assert!(logs.contains("log capture sentinel"));
     assert!(!logs.contains("url-secret"));
@@ -42,12 +46,46 @@ async fn disabled_request_logging_suppresses_transport_url_and_body() {
         .with_network_policy(policy);
     let client =
         crate::RouteAwareClientPool::new(factory, crate::ClientRouteClass::Api).into_client();
-    let logs = capture_transport_logs(client.clone()).await;
+    let logs = capture_transport_logs(client.clone(), LoggedRequestShape::Execute).await;
     assert!(logs.contains("url-secret"));
-    let logs = capture_transport_logs(client.clone().without_request_logging()).await;
+    let logs = capture_transport_logs(
+        client.clone().without_request_logging(),
+        LoggedRequestShape::Execute,
+    )
+    .await;
     assert!(!logs.contains("url-secret"), "{logs}");
     assert!(!logs.contains("body-secret"));
-    assert!(capture_transport_logs(client).await.contains("url-secret"));
+    assert!(
+        capture_transport_logs(client, LoggedRequestShape::Execute)
+            .await
+            .contains("url-secret")
+    );
+}
+
+#[tokio::test]
+async fn disabled_request_logging_suppresses_execute_preserving_status_url_and_body() {
+    let logs = capture_transport_logs(
+        HttpClient::new(test_reqwest_client()).without_request_logging(),
+        LoggedRequestShape::ExecutePreservingStatus,
+    )
+    .await;
+
+    assert!(logs.contains("log capture sentinel"));
+    assert!(!logs.contains("url-secret"));
+    assert!(!logs.contains("body-secret"));
+}
+
+#[tokio::test]
+async fn disabled_request_logging_suppresses_stream_preserving_status_url_and_body() {
+    let logs = capture_transport_logs(
+        HttpClient::new(test_reqwest_client()).without_request_logging(),
+        LoggedRequestShape::StreamPreservingStatus,
+    )
+    .await;
+
+    assert!(logs.contains("log capture sentinel"));
+    assert!(!logs.contains("url-secret"));
+    assert!(!logs.contains("body-secret"));
 }
 
 #[tokio::test]
@@ -79,7 +117,14 @@ fn test_reqwest_client() -> reqwest::Client {
         .expect("HTTP client should build")
 }
 
-async fn capture_transport_logs(client: HttpClient) -> String {
+#[derive(Clone, Copy)]
+enum LoggedRequestShape {
+    Execute,
+    ExecutePreservingStatus,
+    StreamPreservingStatus,
+}
+
+async fn capture_transport_logs(client: HttpClient, request_shape: LoggedRequestShape) -> String {
     let unavailable_server =
         std::net::TcpListener::bind(("127.0.0.1", 0)).expect("server port should bind");
     let server_addr = unavailable_server
@@ -108,7 +153,17 @@ async fn capture_transport_logs(client: HttpClient) -> String {
     .with_json(&json!({"token": "body-secret"}));
     request.timeout = Some(Duration::from_secs(1));
 
-    let _ = transport.execute(request).await;
+    match request_shape {
+        LoggedRequestShape::Execute => {
+            let _ = transport.execute(request).await;
+        }
+        LoggedRequestShape::ExecutePreservingStatus => {
+            let _ = transport.execute_preserving_status(request).await;
+        }
+        LoggedRequestShape::StreamPreservingStatus => {
+            let _ = transport.stream_preserving_status(request).await;
+        }
+    }
 
     String::from_utf8(
         log_buffer
@@ -134,6 +189,7 @@ impl Write for TestLogWriter {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
+}
 
 // R-TRANSPORT-001（replay_0831 R6）raw 形态测试：
 // `execute_preserving_status` / `stream_preserving_status` 对任何上游 status
@@ -289,3 +345,4 @@ fn header_types_available() {
     headers.insert("x-probe", HeaderValue::from_static("v"));
     assert_eq!(headers.get("x-probe").unwrap(), "v");
     let _bytes: Bytes = Bytes::from_static(b"x");
+}
