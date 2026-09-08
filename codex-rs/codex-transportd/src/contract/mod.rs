@@ -48,7 +48,7 @@ pub fn filter_upstream_headers(headers: &http::HeaderMap) -> http::HeaderMap {
         if HOP_BY_HOP.contains(&name.as_str()) || name.as_str().starts_with("x-ctd-") {
             continue;
         }
-        out.insert(name.clone(), value.clone());
+        out.append(name.clone(), value.clone());
     }
     out
 }
@@ -86,5 +86,35 @@ mod tests {
         assert!(filtered.get("set-cookie").is_none());
         assert_eq!(filtered.get("content-type").unwrap(), "text/event-stream");
         assert_eq!(filtered.get("x-request-id").unwrap(), "req_upstream");
+    }
+
+    #[test]
+    fn preserves_duplicate_end_to_end_headers() {
+        let mut headers = http::HeaderMap::new();
+        headers.append(
+            http::header::WWW_AUTHENTICATE,
+            "Bearer realm=\"primary\"".parse().unwrap(),
+        );
+        headers.append(
+            http::header::WWW_AUTHENTICATE,
+            "Basic realm=\"fallback\"".parse().unwrap(),
+        );
+        headers.insert(http::header::CONNECTION, "close".parse().unwrap());
+        headers.insert(http::header::SET_COOKIE, "session=secret".parse().unwrap());
+        headers.insert("x-ctd-origin", "forged".parse().unwrap());
+
+        let filtered = filter_upstream_headers(&headers);
+        let challenges = filtered
+            .get_all(http::header::WWW_AUTHENTICATE)
+            .iter()
+            .map(|value| value.to_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            challenges,
+            vec!["Bearer realm=\"primary\"", "Basic realm=\"fallback\""]
+        );
+        assert!(filtered.get(http::header::CONNECTION).is_none());
+        assert!(filtered.get(http::header::SET_COOKIE).is_none());
+        assert!(filtered.get("x-ctd-origin").is_none());
     }
 }
