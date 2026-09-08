@@ -42,9 +42,15 @@ impl<T: HttpTransport> SearchClient<T> {
         &self,
         body: serde_json::Value,
         extra_headers: HeaderMap,
-    ) -> Result<codex_client::Response, ApiError> {
+    ) -> Result<codex_client::RawRetryOutcome<codex_client::Response>, ApiError> {
         self.session
-            .execute(Method::POST, Self::path(), extra_headers, Some(body))
+            .execute_raw_with(
+                Method::POST,
+                Self::path(),
+                extra_headers,
+                Some(body),
+                |_| {},
+            )
             .await
     }
 

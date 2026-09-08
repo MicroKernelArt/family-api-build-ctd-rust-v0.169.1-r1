@@ -75,9 +75,9 @@ impl<T: HttpTransport> ModelsClient<T> {
         &self,
         request_url: String,
         extra_headers: HeaderMap,
-    ) -> Result<codex_client::Response, ApiError> {
+    ) -> Result<codex_client::RawRetryOutcome<codex_client::Response>, ApiError> {
         self.session
-            .execute_with(
+            .execute_raw_with(
                 Method::GET,
                 Self::path(),
                 extra_headers,
@@ -170,6 +170,7 @@ mod tests {
         last_request: Arc<Mutex<Option<Request>>>,
         body: Arc<ModelsResponse>,
         etag: Option<String>,
+        status: StatusCode,
     }
 
     impl Default for CapturingTransport {
@@ -178,27 +179,52 @@ mod tests {
                 last_request: Arc::new(Mutex::new(None)),
                 body: Arc::new(ModelsResponse { models: Vec::new() }),
                 etag: None,
+                status: StatusCode::OK,
             }
         }
     }
 
     impl HttpTransport for CapturingTransport {
         async fn execute(&self, req: Request) -> Result<Response, TransportError> {
+            let url = req.url.clone();
             *self.last_request.lock().unwrap() = Some(req);
             let body = serde_json::to_vec(&*self.body).unwrap();
             let mut headers = HeaderMap::new();
             if let Some(etag) = &self.etag {
                 headers.insert(ETAG, etag.parse().unwrap());
             }
-            Ok(Response {
-                status: StatusCode::OK,
+            let response = Response {
+                status: self.status,
                 headers,
                 body: body.into(),
-            })
+            };
+            if !response.status.is_success() {
+                return Err(TransportError::Http {
+                    status: response.status,
+                    url: Some(url),
+                    headers: Some(response.headers),
+                    body: String::from_utf8(response.body.to_vec()).ok(),
+                    // 0.159.0 新增字段：测试 transport 不产生 retry advice。
+                    retry_after: None,
+                });
+            }
+            Ok(response)
         }
 
         async fn stream(&self, _req: Request) -> Result<StreamResponse, TransportError> {
             Err(TransportError::Build("stream should not run".to_string()))
+        }
+
+        async fn execute_preserving_status(
+            &self,
+            req: Request,
+        ) -> Result<Response, TransportError> {
+            *self.last_request.lock().unwrap() = Some(req);
+            Ok(Response {
+                status: self.status,
+                headers: HeaderMap::new(),
+                body: serde_json::to_vec(&*self.body).unwrap().into(),
+            })
         }
     }
 
@@ -343,6 +369,7 @@ mod tests {
             last_request: Arc::new(Mutex::new(None)),
             body: Arc::new(response),
             etag: None,
+            status: StatusCode::OK,
         };
 
         let provider = provider("https://example.com/api/codex");
@@ -406,6 +433,7 @@ mod tests {
             last_request: Arc::new(Mutex::new(None)),
             body: Arc::new(response),
             etag: None,
+            status: StatusCode::OK,
         };
 
         let provider = provider("https://example.com/api/codex");
@@ -435,6 +463,7 @@ mod tests {
             last_request: Arc::new(Mutex::new(None)),
             body: Arc::new(response),
             etag: Some("\"abc\"".to_string()),
+            status: StatusCode::OK,
         };
 
         let provider = provider("https://example.com/api/codex");
@@ -452,5 +481,24 @@ mod tests {
 
         assert_eq!(models.len(), 0);
         assert_eq!(etag, Some("\"abc\"".to_string()));
+    }
+
+    #[tokio::test]
+    async fn execute_raw_preserves_not_modified() {
+        let transport = CapturingTransport {
+            status: StatusCode::NOT_MODIFIED,
+            ..Default::default()
+        };
+        let provider = provider("https://example.com/api/codex");
+        let request_url = ModelsClient::<CapturingTransport>::request_url(&provider, "0.1.0");
+        let client = ModelsClient::new(transport, provider, Arc::new(DummyAuth));
+
+        let outcome = client
+            .execute_raw(request_url, HeaderMap::new())
+            .await
+            .expect("304 must remain a raw response");
+
+        assert_eq!(outcome.value.status, StatusCode::NOT_MODIFIED);
+        assert_eq!(outcome.attempts, 1);
     }
 }

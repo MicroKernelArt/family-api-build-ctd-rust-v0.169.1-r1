@@ -53,12 +53,14 @@ pub async fn execute_models_raw(
         headers.insert(http::header::IF_NONE_MATCH, value);
     }
 
-    let response = api_client
+    let outcome = api_client
         .execute_raw(request_url, headers)
         .await
         .map_err(|err| crate::transport::responses::map_api_error(err, "models"))?;
 
-    raw_from_response(response, Operation::Models)
+    let mut raw = raw_from_response(outcome.value, Operation::Models)?;
+    raw.attempt_count = u32::try_from(outcome.attempts).unwrap_or(u32::MAX);
+    Ok(raw)
 }
 
 /// 执行 alpha search 原始请求（session-less）。
@@ -95,12 +97,14 @@ pub async fn execute_alpha_search_raw(
     let api_client =
         codex_api::SearchClient::new(official_adapter::transport_for(client), provider, auth);
 
-    let response = api_client
+    let outcome = api_client
         .execute_raw(value, HeaderMap::new())
         .await
         .map_err(|err| crate::transport::responses::map_api_error(err, "alpha_search"))?;
 
-    raw_from_response(response, Operation::AlphaSearch)
+    let mut raw = raw_from_response(outcome.value, Operation::AlphaSearch)?;
+    raw.attempt_count = u32::try_from(outcome.attempts).unwrap_or(u32::MAX);
+    Ok(raw)
 }
 
 /// 执行 usage/quota 原始请求（WHAM 官方路径，无官方解析 client；
