@@ -1,6 +1,6 @@
 {
   "snapshot_version": 1,
-  "generator": "codex-transportd v0.153.4",
+  "generator": "codex-transportd v0.159.0",
   "operation_count": 17,
   "operations": [
     {
@@ -31,13 +31,13 @@
       "operation": "oauth_whoami",
       "method": "GET",
       "internal_path": "/_internal/v1/auth/whoami",
-      "upstream_path": "api/v1/me",
+      "upstream_path": "api/accounts/v1/user-auth-credential/whoami",
       "requires_session": false,
       "upgrade": false
     },
     {
       "operation": "attachment_download",
-      "method": "POST",
+      "method": "GET",
       "internal_path": "/_internal/v1/files/attachment",
       "upstream_path": "conversation/{conversation_id}/attachment/{attachment_id}/download",
       "requires_session": false,
@@ -45,7 +45,7 @@
     },
     {
       "operation": "file_content_fetch",
-      "method": "POST",
+      "method": "GET",
       "internal_path": "/_internal/v1/files/content",
       "upstream_path": "",
       "requires_session": false,
@@ -53,7 +53,7 @@
     },
     {
       "operation": "file_download",
-      "method": "POST",
+      "method": "GET",
       "internal_path": "/_internal/v1/files/download",
       "upstream_path": "files/{file_id}/download",
       "requires_session": false,

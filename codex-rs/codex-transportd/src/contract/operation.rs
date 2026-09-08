@@ -94,7 +94,7 @@ impl Operation {
             Self::QuotaCredits => "wham/rate-limit-reset-credits",
             Self::QuotaConsume => "wham/rate-limit-reset-credits/consume",
             Self::OAuthRefresh => "token",
-            Self::OAuthWhoami => "api/v1/me",
+            Self::OAuthWhoami => "api/accounts/v1/user-auth-credential/whoami",
             Self::FileUpload => "files",
             Self::FileDownload => "files/{file_id}/download",
             Self::AttachmentDownload => {
@@ -116,9 +116,6 @@ impl Operation {
             | Self::QuotaConsume
             | Self::OAuthRefresh
             | Self::FileUpload
-            | Self::FileDownload
-            | Self::AttachmentDownload
-            | Self::FileContentFetch
             | Self::AgentTaskRegister
             | Self::RealtimeCall => Method::POST,
             Self::ResponsesWebSocketV2
@@ -126,6 +123,9 @@ impl Operation {
             | Self::Usage
             | Self::QuotaCredits
             | Self::OAuthWhoami
+            | Self::FileDownload
+            | Self::AttachmentDownload
+            | Self::FileContentFetch
             | Self::RealtimeSidebandWS => Method::GET,
         }
     }
@@ -220,7 +220,8 @@ mod tests {
     #[test]
     fn closed_mapping_is_static_and_exhaustive() {
         // R3-codex：遍历唯一全量表 ALL（与 enum 同源宏生成），断言每个
-        // operation 的 internal 映射与 upstream method 闭环一致。
+        // operation 的 internal method/path 映射可逆且穷尽。internal method
+        // 与 upstream method 是不同契约，文件 operation 会由 POST 映射为 GET。
         for &op in Operation::ALL {
             let (method, path) = match op {
                 Operation::Responses => (Method::POST, "/_internal/v1/responses"),
@@ -246,7 +247,6 @@ mod tests {
                 Some(op),
                 "internal mapping for {op}"
             );
-            assert_eq!(op.upstream_method(), method, "upstream method for {op}");
         }
     }
 
@@ -276,6 +276,28 @@ mod tests {
                 "upstream path must be a fixed relative path: {path}"
             );
         }
+    }
+
+    #[test]
+    fn file_operations_use_get_upstream() {
+        for operation in [
+            Operation::FileDownload,
+            Operation::AttachmentDownload,
+            Operation::FileContentFetch,
+        ] {
+            assert_eq!(operation.upstream_method(), Method::GET);
+        }
+    }
+
+    #[test]
+    fn oauth_whoami_path_matches_official_endpoint() {
+        let auth_origin = codex_login::auth::PROD_AUTHAPI_BASE_URL
+            .strip_suffix("/api/accounts")
+            .expect("official auth base includes its fixed path");
+        assert_eq!(
+            format!("{auth_origin}/{}", Operation::OAuthWhoami.upstream_path()),
+            codex_login::auth::whoami_endpoint(codex_login::auth::PROD_AUTHAPI_BASE_URL)
+        );
     }
 
     #[test]
