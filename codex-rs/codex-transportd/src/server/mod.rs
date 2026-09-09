@@ -273,9 +273,7 @@ pub(crate) async fn execute_operation(
     let deadline = ctx
         .deadline
         .map(tokio::time::Instant::from_std)
-        .unwrap_or_else(|| {
-            tokio::time::Instant::now() + std::time::Duration::from_secs(300)
-        });
+        .unwrap_or_else(|| tokio::time::Instant::now() + default_deadline_for(ctx.operation));
     let future = execute_operation_inner(state, ctx, body);
     match tokio::time::timeout_at(deadline, future).await {
         Ok(Ok(response)) => {
@@ -302,6 +300,17 @@ pub(crate) async fn execute_operation(
             true,
             "operation exceeded caller deadline",
         )),
+    }
+}
+
+fn default_deadline_for(operation: Operation) -> std::time::Duration {
+    match operation {
+        Operation::ResponsesCompact => std::time::Duration::from_secs(1300),
+        Operation::Responses
+        | Operation::FileDownload
+        | Operation::AttachmentDownload
+        | Operation::FileContentFetch => std::time::Duration::from_secs(3600),
+        _ => std::time::Duration::from_secs(300),
     }
 }
 
@@ -668,6 +677,18 @@ mod guarded_body_tests {
     use super::*;
     use futures::StreamExt;
     use std::time::Duration;
+
+    #[test]
+    fn default_deadline_exceeds_adapter_timeouts() {
+        assert!(
+            default_deadline_for(Operation::ResponsesCompact)
+                > crate::transport::compact::COMPACT_REQUEST_TIMEOUT
+        );
+        assert_eq!(
+            default_deadline_for(Operation::Responses),
+            Duration::from_secs(3600)
+        );
+    }
 
     #[tokio::test]
     async fn permit_held_until_stream_end() {

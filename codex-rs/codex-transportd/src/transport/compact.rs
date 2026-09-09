@@ -19,7 +19,7 @@ use crate::transport::official_adapter;
 use crate::transport::responses;
 
 /// Compact 请求超时（官方 300s idle × 4）。
-const COMPACT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1200);
+pub(crate) const COMPACT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1200);
 
 /// 执行官方 raw compact。
 pub async fn execute_compact_raw(
