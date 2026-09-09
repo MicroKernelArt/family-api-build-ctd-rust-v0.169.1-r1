@@ -1,24 +1,28 @@
-# UPSTREAM_BASE（T-002 / CP-002 冻结）
+# UPSTREAM_BASE
 
-官方 exact-tag fork 基准（本仓库 branch `transportd/v0.144.1` 的 parent）。
+The replay0905 source line is based on the immutable OpenAI Codex
+`rust-v0.159.0` release object.
 
-| 项 | 值 |
+| Field | Value |
 |---|---|
-| upstream remote | `https://github.com/openai/codex` |
-| tag | `rust-v0.144.1` |
-| peeled commit | `44918ea10c0f99151c6710411b4322c2f5c96bea` |
-| `codex-rs/Cargo.lock` SHA-256 | `175793a40a3147db1fee08fd9db0acc59312c344b3513dd7ee316f5446d8119e` |
-| toolchain | `1.95.0`（`codex-rs/rust-toolchain.toml`，含 clippy/rustfmt/rust-src） |
+| upstream repository | `https://github.com/openai/codex` |
+| annotated tag | `rust-v0.159.0` |
+| tag object | `377f7f557a6bdea0f3a2d26d4d899c66db4789d0` |
+| peeled base commit | `687a119f0fcaace47e1f1abcc77cec6c813fd6da` |
+| base tree | `bee1375c8502e4c4d71db017f7e087dfbb3e775c` |
+| base `codex-rs/Cargo.lock` SHA-256 | `16b915e94730a7e598182620923fc6eae19e32366d3b5ef91128002575ae24af` |
+| base `MODULE.bazel.lock` SHA-256 | `be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31` |
+| Rust toolchain | `1.95.0` |
 | license | Apache-2.0 |
 
-可复现命令：
+Verification uses the objects already shipped by this repository:
 
 ```bash
-git ls-remote https://github.com/openai/codex 'refs/tags/rust-v0.144.1^{}'
-# 44918ea10c0f99151c6710411b4322c2f5c96bea
-shasum -a 256 codex-rs/Cargo.lock
-# 175793a40a3147db1fee08fd9db0acc59312c344b3513dd7ee316f5446d8119e
+git cat-file -p 377f7f557a6bdea0f3a2d26d4d899c66db4789d0
+git rev-parse '377f7f557a6bdea0f3a2d26d4d899c66db4789d0^{}'
+git show 687a119f0fcaace47e1f1abcc77cec6c813fd6da:codex-rs/Cargo.lock | shasum -a 256
+git show 687a119f0fcaace47e1f1abcc77cec6c813fd6da:MODULE.bazel.lock | shasum -a 256
 ```
 
-本仓库只消费不可变 upstream 输入；任何 upstream 变更先更新本文件并重跑
-CP-002 gate。
+Changing any base identity requires regenerating the complete patch series and
+all source-bound evidence.

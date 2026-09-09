@@ -84,6 +84,7 @@ st_lifecycle() {
     env -i \
       PATH="$dir:$PATH" HOME="$ST_WORK" TMPDIR="${TMPDIR:-/tmp}" LC_ALL=C \
       PLATFORM=linux/amd64 CTD_V8_CACHE="$ST_WORK/v8" \
+      CTD_RELEASE_RECEIPT_PATH="$ST_WORK/release-receipt.txt" \
       ST_DOCKER_LOG="$ST_DOCKER_LOG" ST_RM_LOG="$ST_RM_LOG" ST_GIT_LOG="$ST_GIT_LOG" \
       bash "$ST_SCRIPT" build --mode local-cargo >"$ST_WORK/$behavior.log" 2>&1
   )

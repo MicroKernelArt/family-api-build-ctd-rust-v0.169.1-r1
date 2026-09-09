@@ -10,6 +10,8 @@ ctd_configure_build_profile() {
   local manifest="$repo/patches/transportd/series.yaml"
   local local_state_root
   local manifest_release_id
+  local resolved_receipt
+  local resolved_repo
 
   BUILD_PROFILE="${BUILD_PROFILE:-release}"
   manifest_release_id="$(sed -n 's/^release_id: //p' "$manifest" | tr -d ' ')"
@@ -67,7 +69,23 @@ ctd_configure_build_profile() {
         echo "FAIL: release profile release id must match manifest: $manifest_release_id" >&2
         return 1
       }
-      RECEIPT_PATH="$repo/sidecar-image-receipt.txt"
+      RECEIPT_PATH="${CTD_RELEASE_RECEIPT_PATH:-}"
+      [ -n "$RECEIPT_PATH" ] || {
+        echo "FAIL: release profile requires CTD_RELEASE_RECEIPT_PATH" >&2
+        return 1
+      }
+      case "$RECEIPT_PATH" in
+        /*) ;;
+        *) echo "FAIL: CTD_RELEASE_RECEIPT_PATH must be absolute" >&2; return 1 ;;
+      esac
+      resolved_repo="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$repo")"
+      resolved_receipt="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$RECEIPT_PATH")"
+      case "$resolved_receipt" in
+        "$resolved_repo"|"$resolved_repo"/*)
+          echo "FAIL: CTD_RELEASE_RECEIPT_PATH must be outside the source tree" >&2
+          return 1
+          ;;
+      esac
       DEFAULT_TARGET_CACHE=""
       ;;
     *)

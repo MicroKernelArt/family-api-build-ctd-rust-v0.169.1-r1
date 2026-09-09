@@ -824,7 +824,8 @@ mod socket_dir_tests {
     fn tmpdir() -> std::path::PathBuf {
         // 原子计数器保证并行测试下路径唯一（同 pid 同微秒时 nanos 会撞号，
         // 导致两个测试共享同一目录、权限断言互相污染）。
-        use std::sync::atomic::{AtomicU64, Ordering};
+        use std::sync::atomic::AtomicU64;
+        use std::sync::atomic::Ordering;
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let d = std::env::temp_dir().join(format!(
             "ctd-socket-dir-test-{}-{}",

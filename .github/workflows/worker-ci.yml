@@ -123,10 +123,12 @@ jobs:
       - name: Verify replay, export, evidence, and mutation gates
         run: |
           set -euo pipefail
+          RECEIPT="${RUNNER_TEMP}/transportd-source-receipt.txt"
+          bash patches/transportd/tools/write-source-receipt.sh "$RECEIPT"
           bash replay/worker-ci-static-test.sh
           bash replay/gate.sh
           bash patches/transportd/tools/export-gate.sh
-          bash patches/transportd/tools/release-evidence-gate.sh
+          bash patches/transportd/tools/release-evidence-gate.sh --receipt "$RECEIPT"
           bash patches/transportd/tools/ci-gates-static-test.sh
           bash patches/transportd/tools/static-fix-gates.sh
           bash patches/transportd/tools/capture-isolation-gate.sh

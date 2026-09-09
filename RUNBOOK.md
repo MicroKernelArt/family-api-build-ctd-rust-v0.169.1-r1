@@ -24,14 +24,26 @@ BUILD_PROFILE=local ./deploy/build-sidecar.sh build --mode local-cargo
 
 ```bash
 # BUILD_PROFILE=release 是默认值；发布机 Docker daemon 必须为 amd64。
+export CTD_BUILD_RECEIPT_PATH=/var/lib/codex-transportd/evidence/build-receipt.txt
+export CTD_RELEASE_RECEIPT_PATH=/var/lib/codex-transportd/evidence/release-receipt.txt
+export CTD_RELEASE_ARTIFACT_PATH=/var/lib/codex-transportd/evidence/release-image.tar
+export CTD_RELEASE_BINARY_PATH=/var/lib/codex-transportd/evidence/codex-transportd
+export CTD_RELEASE_SBOM_PATH=/var/lib/codex-transportd/evidence/release.cdx.json
+export CTD_RELEASE_LICENSE_REPORT_PATH=/var/lib/codex-transportd/evidence/license-report.json
 ./deploy/build-sidecar.sh prepare
+CTD_RELEASE_RECEIPT_PATH="$CTD_BUILD_RECEIPT_PATH" \
 ./deploy/build-sidecar.sh build --mode local-cargo
-bash patches/transportd/tools/release-evidence-gate.sh --release
+bash patches/transportd/tools/materialize-release-artifact.sh
+bash patches/transportd/tools/release-evidence-gate.sh --receipt "$CTD_RELEASE_RECEIPT_PATH" \
+  --artifact "$CTD_RELEASE_ARTIFACT_PATH" --release
+bash patches/transportd/tools/release-tag-verify.sh
 ```
 
 - 目标固定为 `linux/amd64` / `x86_64-unknown-linux-gnu`。
 - source identity 与 release id 来自 `patches/transportd/series.yaml`。
-- canonical receipt 是仓库根目录的 `sidecar-image-receipt.txt`。
+- build/release receipt、镜像 archive、镜像内 binary、SBOM 和 license report
+  路径必须显式提供且位于 source tree 外；gate 会分别校验 source、artifact、
+  binary、SBOM、review 与 release identity。
 - local profile 的 image、release id 或 receipt 均不能作为发布证据。
 
 ## 部署

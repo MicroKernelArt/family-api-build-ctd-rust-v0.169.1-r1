@@ -8,12 +8,12 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
+use crate::contract::RawUpstreamResponse;
+use crate::contract::RequestContext;
 use crate::contract::error::ErrorClass;
 use crate::contract::error::ErrorPhase;
 use crate::contract::error::LocalError;
 use crate::contract::operation::Operation;
-use crate::contract::RawUpstreamResponse;
-use crate::contract::RequestContext;
 use crate::transport::metadata;
 use crate::transport::official_adapter;
 use crate::transport::responses;

@@ -23,8 +23,9 @@ assert_eq() {
 }
 
 profile_config() {
-  local profile="$1" platform="${2:-}" image_tag="${3:-}"
+  local profile="$1" platform="${2:-}" image_tag="${3:-}" receipt="${4:-}"
   BUILD_PROFILE="$profile" PLATFORM="$platform" IMAGE_TAG="$image_tag" HOME="$WORK/home" \
+    CTD_RELEASE_RECEIPT_PATH="$receipt" \
     bash -c '
       set -euo pipefail
       source "$1"
@@ -40,10 +41,29 @@ assert_eq "$local_config" \
   "local|linux/arm64|aarch64-unknown-linux-gnu|arm64|deploy/vendor-debs-arm64|invocation|$WORK/home/.cache/codex-transportd/receipts/local-arm64.txt|$WORK/home/.cache/codex-transportd/target/arm64" \
   "local profile defaults"
 
-release_config="$(profile_config release)"
+release_receipt="$WORK/receipts/release.txt"
+release_config="$(profile_config release "" "" "$release_receipt")"
 assert_eq "$release_config" \
-  "release|linux/amd64|x86_64-unknown-linux-gnu|amd64|deploy/vendor-debs|manifest|$REPO/sidecar-image-receipt.txt|" \
+  "release|linux/amd64|x86_64-unknown-linux-gnu|amd64|deploy/vendor-debs|manifest|$release_receipt|" \
   "release profile defaults"
+
+if profile_config release >/dev/null 2>&1; then
+  echo "FAIL: release profile accepted a missing external receipt path"
+  exit 1
+fi
+if profile_config release "" "" "$REPO/receipt.txt" >/dev/null 2>&1; then
+  echo "FAIL: release profile accepted an in-tree receipt path"
+  exit 1
+fi
+if profile_config release "" "" "$REPO/../$(basename "$REPO")/receipt.txt" >/dev/null 2>&1; then
+  echo "FAIL: release profile accepted an in-tree receipt path containing traversal"
+  exit 1
+fi
+ln -s "$REPO" "$WORK/repo-link"
+if profile_config release "" "" "$WORK/repo-link/receipt.txt" >/dev/null 2>&1; then
+  echo "FAIL: release profile accepted a symlinked in-tree receipt path"
+  exit 1
+fi
 
 for invalid in "local linux/amd64" "release linux/arm64"; do
   invalid_profile="${invalid%% *}"
@@ -118,6 +138,7 @@ chmod +x "$MOCK_BIN"/*
 
 run_prepare() {
   local profile="$1" platform="${2:-}" daemon_arch="${3:-}" log="$WORK/docker-$1-${2:-default}.log"
+  local receipt="$WORK/receipts/$profile-${2:-default}.txt"
   if [ -z "$daemon_arch" ]; then
     case "$profile" in
       local) daemon_arch="arm64" ;;
@@ -128,6 +149,7 @@ run_prepare() {
   if ! env -i \
     PATH="$MOCK_BIN:$PATH" HOME="$WORK/home" TMPDIR="$WORK" LC_ALL=C.UTF-8 \
     BUILD_PROFILE="$profile" PLATFORM="$platform" \
+    CTD_RELEASE_RECEIPT_PATH="$receipt" \
     CTD_V8_CACHE="$WORK/v8-$profile-${2:-default}" \
     CTD_TEST_DOCKER_LOG="$log" \
     CTD_TEST_CURL_LOG="$WORK/curl.log" \
@@ -140,7 +162,6 @@ run_prepare() {
   printf '%s\n' "$log"
 }
 
-canonical_before="$(shasum -a 256 "$REPO/sidecar-image-receipt.txt" | awk '{print $1}')"
 local_log="$(run_prepare local)"
 grep -Fq "cargo fetch --locked（source=1111111111111111111111111111111111111111）" "$WORK/local-default.out" || {
   echo "FAIL: UTF-8 locale corrupted the source identity expansion"
@@ -162,8 +183,10 @@ if ! grep -Fq "export PATH=\"/usr/local/rustup/toolchains/1.95.0-aarch64-unknown
   echo "FAIL: prepare must use the image-pinned toolchain without rustup component sync"
   exit 1
 fi
-canonical_after="$(shasum -a 256 "$REPO/sidecar-image-receipt.txt" | awk '{print $1}')"
-assert_eq "$canonical_after" "$canonical_before" "local prepare preserves release receipt"
+[ ! -e "$release_receipt" ] || {
+  echo "FAIL: local prepare created a release receipt"
+  exit 1
+}
 local_curl_before="$(wc -l < "$WORK/curl.log" | tr -d ' ')"
 run_prepare local >/dev/null
 local_curl_after="$(wc -l < "$WORK/curl.log" | tr -d ' ')"
@@ -183,7 +206,8 @@ release_arm_log="$WORK/docker-release-arm64-daemon.log"
 : > "$release_arm_log"
 if env -i \
   PATH="$MOCK_BIN:$PATH" HOME="$WORK/home" TMPDIR="$WORK" LC_ALL=C.UTF-8 \
-  BUILD_PROFILE=release CTD_TEST_DAEMON_ARCH=arm64 CTD_TEST_DOCKER_LOG="$release_arm_log" \
+  BUILD_PROFILE=release CTD_RELEASE_RECEIPT_PATH="$release_receipt" \
+  CTD_TEST_DAEMON_ARCH=arm64 CTD_TEST_DOCKER_LOG="$release_arm_log" \
   CTD_TEST_CURL_LOG="$WORK/curl.log" CTD_TEST_SERIES="$REPO/patches/transportd/series.yaml" \
   bash "$BUILD_SCRIPT" prepare >/dev/null 2>&1; then
   echo "FAIL: release prepare accepted an arm64 Docker daemon"

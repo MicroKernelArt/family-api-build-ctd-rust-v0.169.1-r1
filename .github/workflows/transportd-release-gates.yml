@@ -40,7 +40,10 @@ jobs:
       - name: Export gate（manifest 驱动系列完整性；summary 只读校验）
         run: bash patches/transportd/tools/export-gate.sh
       - name: Evidence gate（pre-release 模式；不构成 release 批准）
-        run: bash patches/transportd/tools/release-evidence-gate.sh
+        run: |
+          RECEIPT="${RUNNER_TEMP}/transportd-source-receipt.txt"
+          bash patches/transportd/tools/write-source-receipt.sh "$RECEIPT"
+          bash patches/transportd/tools/release-evidence-gate.sh --receipt "$RECEIPT"
       - name: Static CI gate test（gate 集与模式分离的结构断言）
         run: bash patches/transportd/tools/ci-gates-static-test.sh
 
@@ -54,9 +57,26 @@ jobs:
           git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
           git fetch origin --tags "+${GITHUB_REF}"
           git checkout --force FETCH_HEAD
-      - name: Release tag verification（声明 tag；release 旗标由脚本内部执行）
+      - name: Build exact release image and producer receipt
+        env:
+          CTD_RELEASE_RECEIPT_PATH: ${{ runner.temp }}/transportd-build-receipt.txt
+        run: |
+          BUILD_PROFILE=release bash deploy/build-sidecar.sh prepare
+          BUILD_PROFILE=release bash deploy/build-sidecar.sh build --mode local-cargo
+      - name: Materialize image archive, binary, SBOM, and release receipt
+        env:
+          CTD_BUILD_RECEIPT_PATH: ${{ runner.temp }}/transportd-build-receipt.txt
+          CTD_RELEASE_RECEIPT_PATH: ${{ runner.temp }}/transportd-release-receipt.txt
+          CTD_RELEASE_ARTIFACT_PATH: ${{ runner.temp }}/transportd-release-image.tar
+          CTD_RELEASE_BINARY_PATH: ${{ runner.temp }}/codex-transportd
+          CTD_RELEASE_SBOM_PATH: ${{ runner.temp }}/transportd-release.cdx.json
+          CTD_RELEASE_LICENSE_REPORT_PATH: ${{ runner.temp }}/transportd-license-report.json
+        run: bash patches/transportd/tools/materialize-release-artifact.sh
+      - name: Verify release tag and exact materialized artifacts
+        env:
+          CTD_RELEASE_RECEIPT_PATH: ${{ runner.temp }}/transportd-release-receipt.txt
+          CTD_RELEASE_ARTIFACT_PATH: ${{ runner.temp }}/transportd-release-image.tar
+          CTD_RELEASE_BINARY_PATH: ${{ runner.temp }}/codex-transportd
+          CTD_RELEASE_SBOM_PATH: ${{ runner.temp }}/transportd-release.cdx.json
+          CTD_RELEASE_LICENSE_REPORT_PATH: ${{ runner.temp }}/transportd-license-report.json
         run: bash patches/transportd/tools/release-tag-verify.sh
-      - name: Wire gate（wire 证据未闭合则失败）
-        run: bash patches/transportd/tools/wire-gate.sh
-      - name: SBOM gate（摘要 TBD/未绑定则失败）
-        run: bash patches/transportd/tools/sbom-gate.sh

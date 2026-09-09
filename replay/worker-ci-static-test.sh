@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2016 # Static assertions intentionally match literal shell variables.
 set -eu
 
 repo=$(unset CDPATH; cd -- "$(dirname -- "$0")/.." && pwd)
@@ -61,7 +62,7 @@ require_text "$workflow" 'cargo test --locked -p codex-http-client --lib'
 require_text "$workflow" 'cargo clippy --locked -p codex-transportd --no-deps -- -D warnings'
 require_text "$workflow" 'bash replay/gate.sh'
 require_text "$workflow" 'bash patches/transportd/tools/export-gate.sh'
-require_text "$workflow" 'bash patches/transportd/tools/release-evidence-gate.sh'
+require_text "$workflow" 'bash patches/transportd/tools/release-evidence-gate.sh --receipt'
 require_text "$workflow" 'bash codex-rs/scripts/check-platform-archives.sh'
 # R3-LINK-001 回归（静态）：连续两次 hosted run（33472913683、33498330072）
 # 在同一 final lib-test link 阶段死于 ld signal 7 [Bus error]，两次之间
@@ -89,9 +90,9 @@ if grep -qF 'runs_on:' "$workflow" || grep -qF -- '-runners' "$workflow"; then
     fail 'worker CI workflow depends on a repository self-hosted runner group'
 fi
 
-require_text "$repo/replay/gate.sh" 'GITHUB_ACTIONS'
-require_text "$repo/replay/gate.sh" 'ci/family-api-codex/'
-require_text "$repo/replay/gate.sh" "while [ \"\$REPLAY_HEAD\" != \"\$BASE\" ]; do"
+require_text "$repo/replay/gate.sh" 'merge-base --is-ancestor "$SOURCE_COMMIT" "$RELEASE_COMMIT"'
+require_text "$repo/replay/gate.sh" 'merge-base --is-ancestor "$RELEASE_COMMIT" "$CURRENT"'
+require_text "$repo/replay/gate.sh" 'post-source review commit changes non-evidence path'
 require_text "$repo/.github/workflows/transportd.yml" 'branches: ["transportd/**", "replay_*"]'
 require_text "$repo/.github/workflows/transportd-release-gates.yml" 'branches: ["transportd/**", "replay_*"]'
 
