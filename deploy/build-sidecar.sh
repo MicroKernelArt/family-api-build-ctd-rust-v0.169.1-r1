@@ -378,7 +378,14 @@ if failed:
 print('   /info pin 全部一致 ✓ (codex_tag/codex_commit/cargo_lock_sha256 + '
       'fork_commit/target/fork_cargo_lock_sha256/release_id/image_digest/attestation/test_upstream + '
       'codex_version/rust_toolchain/base_image_ref)')
-# build_proof_digest 是构建后产物绑定，由 bin-verify.sh 在发布阶段守，源码阶段不断言。
+# build_proof_digest 是构建后产物绑定：本脚本不注入该值（不传 --build-proof-digest），
+# 源码阶段因此**有意不在此断言**。真正的守门者是：
+#   1) Go 侧严格 pin —— expected_build_proof_digest 在 strict 模式下必填；/info 缺少
+#      image_digest 或 build_proof_digest 时 readiness 直接拒绝；
+#   2) release receipt —— binary_digest 记录构建后 binary 摘要，是 --build-proof-digest
+#      的自然取值来源；strict 部署必须显式传 --build-proof-digest（取 receipt 的
+#      binary_digest）。
+# 注意：bin-verify.sh 并不校验 build_proof_digest（该脚本中 grep -c build_proof_digest == 0）。
 PYEOF
 docker exec "$CID" curl -fsS --unix-socket /run/ctd/sock/transport.sock http://localhost/_internal/v1/health/ready >/dev/null \
   || { echo "FAIL: health/ready"; exit 1; }

@@ -71,3 +71,11 @@ source commit → Cargo.lock → SBOM → image digest（/info + readiness 校�
   operation/capability 行为；官方 wire 三方对照需真实网络环境（FR-025 open gate），
   完成前 capability 不视为 release-ready
 - 任意 rebuild 改变 fork commit/lock hash 后，旧 wire/canary receipt 自动失效
+
+## gate metadata（由证据提交写入；wire-gate.sh 逐字段比对 series.yaml）
+
+wire_source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+wire_source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+# unverified：0.144.1 时代的线级对照（T-010）尚未对 rust-v0.159.0 基线重跑。
+# 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
+wire_status: unverified

@@ -1,10 +1,68 @@
 schema: family-api/replay-line/v2
-manifest_status: partial-at-product-commit  # 仅头部；source 与逐提交清单由证据提交生成
 line: replay0905-v0159
 repository: family-api-codex
 upstream_tag: rust-v0.159.0
 upstream_tag_object: 377f7f557a6bdea0f3a2d26d4d899c66db4789d0
 base_commit: 687a119f0fcaace47e1f1abcc77cec6c813fd6da
-# 本文件在**产品提交**里只声明上游基线与线名：source_commit/source_tree 与
-# 逐提交 (commit, tree) 清单是**自引用**的，由证据提交从实际链生成后写入
-# （见 patches/transportd/series.yaml 与证据提交的 replay/manifest.yaml）。
+source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+release_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+expected_release_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+commit_count: 17
+commits:
+  - commit: 12066620d4536cbbdacf71bea66692fe8c1572e1
+    tree: 1517d4f61646671d192b0ddb417838ad5cc28d3c
+    capability: transportd-crate-and-p1-planes
+  - commit: 49cde2c56bf56639d18c3a94d057f10147963c28
+    tree: b01d7d3b8a9ecce10b99b20ecabbbc94aaf3505f
+    capability: codex-api-raw-endpoint-adapters
+  - commit: 4027ab3d5883d56605d5476b40f3ef8c923d235d
+    tree: 6c8df13396954527e3c39ce9aeda2a7879dfcf83
+    capability: http-client-raw-transport-and-explicit-route
+  - commit: 6581ca6873492a5cee087702792b3b3f5511bf3f
+    tree: 5374a4eb147f2d824caeff6385d56976836ff165
+    capability: websocket-client-explicit-route
+  - commit: da3d82fbc21fb781ffe71b02896c39bc0e0054c2
+    tree: 4b94d1d2c87aff7e82be1d38063d7616f71b921a
+    capability: core-transport-metadata-adapter
+  - commit: 5638c506fc6806fea207e58062155d4fdd9e3722
+    tree: 7c4dcd7bdc1081a31fc0c4cd8a232fa0413b2510
+    capability: codex-client-raw-retry-loop
+  - commit: 478a35ecf486e0902faa90b1673078b7bd8ac87b
+    tree: d33a34d49aa0672cb3e8ddcdd5f6ea1b5bba6893
+    capability: login-auth-component-visibility
+  - commit: 148b34118050f2e2135b610ee3031612386cc171
+    tree: 790d4da055b07a5e050724f47cd76352a30c39d3
+    capability: ci-workflows-and-platform-archives
+  - commit: 5ecb30d92d406caf292414a1c7207ff7954f87ac
+    tree: 940266fb75a1cd3a305e7345a6a6853b0457b9f9
+    capability: auxiliary-upstream-status-preservation
+  - commit: 118dfd5d118504317bc41d9f0a1ff991844c031c
+    tree: 43d0b8567e77444acf09c01689bd24f2aec3f05b
+    capability: operation-specific-default-deadlines
+  - commit: 9ef2db70bfca0d9f1137935d6922c69c0c3649ad
+    tree: ba7644188cf927af3079dffa5f0af40045a11192
+    capability: upstream-operation-metadata-correction
+  - commit: b96a968de2257936aed15a90f28ee039c217ee7d
+    tree: ec71a5b127735ebf67ab841638932c7aec69c088
+    capability: websocket-pong-channel-termination
+  - commit: cc0fd9d0676d1b898093d01fb19fe700f355d93e
+    tree: f5a64ff88ec21ddf4eb807825abc350e7d38cd0d
+    capability: shared-cloudflare-cookie-jar-documentation
+  - commit: bc5f49918f60a2e7e2ad06bf3e4d20439004ae3a
+    tree: 0e799e90c4675ca1e92b40f24e64e8fc5b8212d0
+    capability: disabled-raw-request-logging
+  - commit: f205843251749b9f476a182fab6eb6900491de7f
+    tree: 0e70293f8277dc4d2f4f5f351ddb27a1592defd8
+    capability: bounded-pre-admission-uds-connections
+  - commit: e495d8281c625b15cba497f0fd415851f32a6efd
+    tree: f818882d43380deeb85744511ea223ac35d4a45d
+    capability: duplicate-upstream-header-preservation
+  - commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+    tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+    capability: release-evidence-machinery
+# 产品提交处的 replay/manifest.yaml 只有头部（base_commit + 线名）：source_commit/
+# source_tree 与逐提交 (commit, tree) 清单是自引用的，只能由本证据提交从实际链生成。
+# 所有改动都已折进产品链，除下面显式声明的两个 close-out 路径外不存在 post-source 例外。
+# post_source_allow：review-close-out 的文档/守门注释修复（deploy/build-sidecar.sh、docs/REPLAY0905_SQUASH_MAP.md）；不在 replay/gate.sh 通用白名单内，且产品提交已被外部钉死（不可重开产品链）故显式声明；二者均为纯注释/文档改动，对构建出的 binary 行为惰性。
+post_source_allow: deploy/build-sidecar.sh docs/REPLAY0905_SQUASH_MAP.md

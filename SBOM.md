@@ -14,8 +14,8 @@
 | toolchain | `1.95.0`（clippy/rustfmt/rust-src） | codex-rs/rust-toolchain.toml |
 | target | `x86_64-unknown-linux-gnu` | build.rs 注入 |
 | license | Apache-2.0 | 官方 LICENSE + NOTICE |
-| base image | `debian:trixie-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258`（amd64） | UPSTREAM_BASE.md |
-| build-proof binary SHA-256 | `4ca3dc86253573cd6f53fee398cb16a446cda139128eda1f362ea7af1dd4f43c` | `cargo build --locked --release -p codex-transportd` |
+| base image | `debian:trixie-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258`（amd64） | `codex-rs/codex-transportd/BUILD_PROOF.md` + `codex-rs/codex-transportd/Dockerfile`（运行阶段 `FROM`；`UPSTREAM_BASE.md` 不含该 digest） |
+| build-proof binary SHA-256 | CP-002 历史记录 / 非本线声明：`4ca3dc86253573cd6f53fee398cb16a446cda139128eda1f362ea7af1dd4f43c`（旧 rust-v0.156.1 线的 CP-002 build-proof 摘要，**不是**本线产物的摘要） | `codex-rs/codex-transportd/BUILD_PROOF.md`（Build-proof digest 段对本线仍为 `TBD（构建后回填 …）`，构建后才产生本线值） |
 | final release candidate digest | TBD（T-010 wire gate 通过后由 CI 产出并绑定） | CI artifact |
 
 ## 发布产物
@@ -31,3 +31,12 @@
 - 只 promote 已通过 wire 对照的 immutable digest（§19.1）；
 - 任何 rebuild/digest 变化使对应 wire 证据失效并重跑；
 - CI 从 clean clone 重建并比对 build metadata 与依赖图。
+
+## gate metadata（由证据提交写入；sbom-gate.sh 逐字段比对 series.yaml）
+
+sbom_source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+sbom_source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+sbom_cargo_lock_sha256: 781fd2792f915e5d60bbf1fd2b3d40e15b7e56b644d34b8b25d098bc9a707fa8
+sbom_module_bazel_lock_sha256: be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31
+sbom_status: generated-from-locks
+sbom_artifact_status: external-receipt-required

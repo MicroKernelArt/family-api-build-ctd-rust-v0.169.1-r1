@@ -1,5 +1,11 @@
 # replay0905 review squash map（7 groups ↔ 133 orig commits）
 
+> **历史记录 / 已被取代（superseded）**：本文件是 2026-09-06 的 `replay0905` review
+> 压缩记录，基线 `042fb41b`（rust-v0.153.4），其中「Phase C 0.153.4 API drift」等内容
+> 属于该基线。本线已由 `replay0905-v0159-r1` 取代（基线 rust-v0.159.0，peeled
+> `687a119f0f`）；当前线的补丁、身份与证据以 `patches/transportd/series.yaml`、
+> `replay/manifest.yaml` 与 `PATCHES.md` 为准，本文件仅保留作逐 patch 溯源。
+
 > 2026-09-06。本分支 `replay0905` 是 **review 视图**：把 codex transportd 的 133 个
 > replay commit（`replay0905-upgrade` 线）按功能/scope 压缩为 7 个 commit，**tree 与
 > granular HEAD 逐字节一致**（`git diff replay0905-upgrade replay0905` 为空）。

@@ -1,0 +1,42 @@
+# replay0905 complete source export (rust-v0.159.0 replay).
+# The immutable source identity is the final product/gate commit. This manifest
+# and the patches below live in a later evidence-only commit so they cannot
+# claim the commit that contains themselves.
+schema: cwf/replay-series/v2
+kind: replay_series
+series: replay0905
+upstream: openai/codex
+upstream_tag: rust-v0.159.0
+official_tag_object: 377f7f557a6bdea0f3a2d26d4d899c66db4789d0
+peeled_base_commit: 687a119f0fcaace47e1f1abcc77cec6c813fd6da
+source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+expected_release_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+series_entries: 17
+cargo_lock_sha256: 781fd2792f915e5d60bbf1fd2b3d40e15b7e56b644d34b8b25d098bc9a707fa8
+module_bazel_lock_sha256: be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31
+v8_archive_sha256_x86_64-unknown-linux-gnu: 5869fdb7071b1f21f200a97ce97d20125877e0f31cd802ed99de2c53f488b06c
+v8_archive_sha256_aarch64-unknown-linux-gnu: b7177d52ad3337272fe0d3b8e778239c821a95c25d5959dec62b9efd654f7dd3
+artifact_identity: external_receipt
+review_identity: gate_runtime
+release_id: ctd-rust-v0.159.0-r1
+release_tag: transportd/ctd-rust-v0.159.0-r1
+release_status: unapproved
+patches:
+  - full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
+  - full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
+  - full/0003-replay0905-patch-3-8-http-client-adapters.patch
+  - full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
+  - full/0005-replay0905-patch-5-8-core-responses_metadata.patch
+  - full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
+  - full/0007-replay0905-patch-7-8-login-auth.patch
+  - full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
+  - full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
+  - full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
+  - full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
+  - full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
+  - full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
+  - full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
+  - full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
+  - full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
+  - full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch

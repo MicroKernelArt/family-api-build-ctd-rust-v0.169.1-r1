@@ -1,10 +1,30 @@
 # PATCHES（transportd/v0.159.0 相对 upstream rust-v0.159.0）
 
-本文件是 fork 的唯一修改面清单（TLS-CTD-001 §10.6 / FR-006）。每一行
-都必须可映射到一个需求；修改面只允许四类：新增 binary crate、metadata
-adapter、raw response adapter、显式 proxy route adapter。未列出文件一律
-与 upstream `rust-v0.159.0`（687a119f0fcaace47e1f1abcc77cec6c813fd6da）
-一致。
+patches_source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
+patches_source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+
+本文件是 fork 的修改面与需求映射清单（TLS-CTD-001 §10.6 / FR-006）。下表每一行
+都必须可映射到一个需求；P-row 只覆盖四类 adapter 改动：新增 binary crate、
+metadata adapter、raw response adapter、显式 proxy route adapter。
+
+P-row 表是需求映射的**子集**，不是完整修改面，也不构成「未列出文件与 upstream
+一致」的声明。本线相对 upstream `rust-v0.159.0`
+（`687a119f0fcaace47e1f1abcc77cec6c813fd6da`）共修改 **206** 个路径：
+`codex-rs/codex-transportd/` 内 61 个、`codex-rs/` 其它文件 24 个、非
+`codex-rs/` 路径 121 个（`deploy/` 85、`patches/transportd/tools/` 16、
+`replay/` 4、`.github/workflows/` 4、`docs/` 2、`scripts/` 1、仓库根 9）。
+
+完整、逐行的机器生成清单见 `patches/transportd/modified-paths.txt`，生成命令
+`bash patches/transportd/tools/gen-modification-surface.sh`（等价于
+`git diff --name-only 687a119f0fcaace47e1f1abcc77cec6c813fd6da <source_commit>`）。
+该清单中存在大量未被任何 P-row 命名的路径，例如整个 `deploy/vendor-debs*/`、
+`patches/transportd/tools/`、`replay/`，以及 `codex-rs/` 下若干非 transportd 文件
+（`codex-rs/codex-api/src/telemetry.rs`、`codex-rs/codex-client/src/{lib,retry}.rs`、
+`codex-rs/codex-client/tests/retry_raw_tests.rs`、`codex-rs/core/src/lib.rs`、
+`codex-rs/http-client/src/{transport,transport_tests}.rs`、
+`codex-rs/scripts/check-platform-archives.sh`、
+`codex-rs/websocket-client/src/cookie_tests.rs`）。因此本文件**不再**声明
+「未列出文件一律与 upstream 一致」。
 
 | # | 文件 | 变更 | 目的 | 需求 |
 |---|---|---|---|---|
@@ -15,7 +35,7 @@ adapter、raw response adapter、显式 proxy route adapter。未列出文件一
 | P-005 | `UPSTREAM_BASE.md` / `PATCHES.md` / `codex-rs/codex-transportd/BUILD_PROOF.md` | fork 冻结证据 | CP-002 gate | T-002 |
 | P-006 | `codex-rs/core/src/responses_metadata.rs` | 新增 `CodexResponsesMetadata::try_for_transport`（UUIDv7/window 校验窄构造器）与 `TransportMetadataError`；`client_metadata`/`compatibility_headers` 转 pub | metadata adapter（FR-009/FR-010） | T-005 |
 | P-007 | `codex-rs/codex-api/src/endpoint/responses.rs` | 新增 `ResponsesClient::stream_raw`（复用 EndpointSession/auth/compression/retry，返回原始 status/headers/bytes stream） | raw response adapter（FR-011） | T-005 |
-| P-008 | `codex-rs/codex-api/src/endpoint/compact.rs` | 新增 `CompactClient::execute_raw`（原始 status/headers/body） | raw response adapter（FR-012） | T-005/T-007 |
+| P-008 | `codex-rs/codex-api/src/endpoint/responses.rs` + `codex-rs/codex-api/src/endpoint/session.rs` | 新增 `ResponsesClient::execute_raw_compact`（`POST /responses/compact` 的原始 status/headers/body；上游已删除专用 `CompactClient`，该路由在本线归 responses 客户端）与底层 `EndpointSession::execute_raw_with`（原始 unary 形态：terminal non-2xx 原样返回、携带官方 retry 后的真实 attempt 数） | raw response adapter（FR-012） | T-005/T-007 |
 | P-009 | `codex-rs/codex-api/src/endpoint/models.rs` | 新增 `ModelsClient::execute_raw` | raw response adapter（FR-011） | T-008 |
 | P-010 | `codex-rs/codex-api/src/endpoint/search.rs` | 新增 `SearchClient::execute_raw` | raw response adapter（FR-011） | T-008 |
 | P-011 | `codex-rs/http-client/src/outbound_proxy.rs` + `lib.rs` | 新增 `build_reqwest_client_for_explicit_route`（Direct 强制 no_proxy；Proxy 精确 pin；失败不回退 direct） | 显式 proxy route adapter（FR-016/FR-017） | T-005 |
