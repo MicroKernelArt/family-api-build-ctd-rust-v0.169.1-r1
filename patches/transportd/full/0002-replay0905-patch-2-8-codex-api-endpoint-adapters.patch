@@ -1,7 +1,7 @@
 From d1a7705922c37fc214f9f23c837349b9e2830337 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 02/23] replay0905-patch(2/8): codex-api endpoint adapters
+Subject: [PATCH 02/32] replay0905-patch(2/8): codex-api endpoint adapters
 
 (cherry picked from commit 49cde2c56bf56639d18c3a94d057f10147963c28)
 ---

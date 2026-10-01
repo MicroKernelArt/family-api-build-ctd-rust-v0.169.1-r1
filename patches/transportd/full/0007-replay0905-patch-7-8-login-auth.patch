@@ -1,7 +1,7 @@
 From 420574c218814e1884e421874937bb26cbf8936a Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 07/23] replay0905-patch(7/8): login auth
+Subject: [PATCH 07/32] replay0905-patch(7/8): login auth
 
 (cherry picked from commit 478a35ecf486e0902faa90b1673078b7bd8ac87b)
 ---

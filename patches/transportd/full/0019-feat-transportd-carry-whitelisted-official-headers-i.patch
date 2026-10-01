@@ -1,7 +1,7 @@
 From 872f86f1036008a4c0b4aa05d70a4ee55920bdcd Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 12:12:16 +0800
-Subject: [PATCH 19/23] feat(transportd): carry whitelisted official headers
+Subject: [PATCH 19/32] feat(transportd): carry whitelisted official headers
  into the upstream projection
 
 R-CTD (rust_sidecar) previously rebuilt every upstream request from a blank

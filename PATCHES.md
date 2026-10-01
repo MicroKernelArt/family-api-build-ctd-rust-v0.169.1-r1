@@ -9,17 +9,23 @@ metadata adapter、raw response adapter、显式 proxy route adapter。
 
 P-row 表是需求映射的**子集**，不是完整修改面，也不构成「未列出文件与 upstream
 一致」的声明。本线相对 upstream `rust-v0.159.2`
-（`ff6aec96948b70d94983af2641a6b67c94faeff5`）共修改 **226** 个路径：
-`codex-rs/codex-transportd/` 内 61 个、`codex-rs/` 其它文件 24 个、非
-`codex-rs/` 路径 141 个（`deploy/` 85、`patches/transportd/` 36、
+（`ff6aec96948b70d94983af2641a6b67c94faeff5`）共修改 **235** 个路径：
+`codex-rs/codex-transportd/` 内 63 个、`codex-rs/` 其它文件 25 个、非
+`codex-rs/` 路径 147 个（`deploy/` 85、`patches/transportd/` 42、
 `replay/` 4、`.github/workflows/` 4、`docs/` 2、`scripts/` 1、仓库根 9）。
 
 > **基线沿革**：本线原基于 `rust-v0.159.0`（`687a119f0f`，206 个路径）。因 Go 侧
 > sub2api 实现实际对齐 `rust-v0.159.2`，已整线重放到 `rust-v0.159.2`
-> （`ff6aec96`，23 个产品提交）。0.159.0→0.159.2 的上游 delta 只有 75 个文件
+> （`ff6aec96`）。0.159.0→0.159.2 的上游 delta 只有 75 个文件
 > （+724/−183），与本线修改面仅在 `codex-rs/Cargo.toml` 与 `codex-rs/Cargo.lock`
-> 两处相交，二者均已重解析/归一化。新增的 20 个路径全部落在
+> 两处相交，二者均已重解析/归一化。该次重放新增的 20 个路径全部落在
 > `patches/transportd/full/`（17→23 个导出补丁）。
+>
+> **2026-10-02 二次重导出**：hookpoint v1/v3 对齐工作（`79de633..b525b18`，
+> 8 个实现提交）折入系列，`source_commit` 由 `e517cf8` 前移到 `b525b183`
+> （tree `db0a4bd1`）。导出补丁 23→**32**，修改面 226→**235** 个路径。
+> 该批改动**不在**下方 P-row 表的 T-00x 需求映射内（P-row 是 CP-002 时代的
+> 四类 adapter 映射子集），其需求与逐提交说明见 `up-1001/docs/04`。
 
 完整、逐行的机器生成清单见 `patches/transportd/modified-paths.txt`，生成命令
 `bash patches/transportd/tools/gen-modification-surface.sh`（等价于

@@ -1,9 +1,9 @@
 # fork 完整修改面（机器生成；请勿手改）
 # 生成命令：bash patches/transportd/tools/gen-modification-surface.sh
-# 等价命令：git diff --name-only ff6aec96948b70d94983af2641a6b67c94faeff5 e517cf8d50731482d2166b2d59a035ad6a8908e2
+# 等价命令：git diff --name-only ff6aec96948b70d94983af2641a6b67c94faeff5 b525b18365ac4cd1626f15105a5b647933271e0c
 # upstream 基线（peeled_base_commit）：ff6aec96948b70d94983af2641a6b67c94faeff5
-# 本线产品提交（source_commit）：e517cf8d50731482d2166b2d59a035ad6a8908e2
-# 路径总数：226（codex-rs/codex-transportd/ 61；codex-rs/ 其它 24；非 codex-rs/ 141）
+# 本线产品提交（source_commit）：b525b18365ac4cd1626f15105a5b647933271e0c
+# 路径总数：235（codex-rs/codex-transportd/ 63；codex-rs/ 其它 25；非 codex-rs/ 147）
 .dockerignore
 .github/workflows/rust-ci-full-nextest-platform.yml
 .github/workflows/transportd-release-gates.yml
@@ -25,6 +25,7 @@ codex-rs/codex-api/src/endpoint/responses_websocket.rs
 codex-rs/codex-api/src/endpoint/search.rs
 codex-rs/codex-api/src/endpoint/session.rs
 codex-rs/codex-api/src/telemetry.rs
+codex-rs/codex-api/tests/clients.rs
 codex-rs/codex-client/src/lib.rs
 codex-rs/codex-client/src/retry.rs
 codex-rs/codex-client/tests/retry_raw_tests.rs
@@ -75,8 +76,10 @@ codex-rs/codex-transportd/src/transport/mod.rs
 codex-rs/codex-transportd/src/transport/official_adapter.rs
 codex-rs/codex-transportd/src/transport/proxy.rs
 codex-rs/codex-transportd/src/transport/responses.rs
+codex-rs/codex-transportd/src/transport/responses_v3.rs
 codex-rs/codex-transportd/src/transport/url_policy.rs
 codex-rs/codex-transportd/src/transport/websocket.rs
+codex-rs/codex-transportd/src/transport/wire_harness.rs
 codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 codex-rs/codex-transportd/tests/contract_deployment.rs
 codex-rs/codex-transportd/tests/default_operation_deadline.rs
@@ -206,6 +209,12 @@ patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-l
 patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
+patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
+patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
+patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
+patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
+patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
+patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 patches/transportd/modified-paths.txt
 patches/transportd/series.yaml
 patches/transportd/tools/bin-verify.sh

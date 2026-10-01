@@ -1,7 +1,7 @@
 From 5613022367ac5e1081fa14b9494d3b9bf45a61d0 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 10 Sep 2026 01:05:35 +0800
-Subject: [PATCH 10/23] fix(transportd): CK-0002 operation-specific default
+Subject: [PATCH 10/32] fix(transportd): CK-0002 operation-specific default
  deadlines (incl. Responses streaming budget)
 
 default_deadline_for: compact 1300s, Responses/downloads 3600s, others

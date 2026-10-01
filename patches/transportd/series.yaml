@@ -9,11 +9,11 @@ upstream: openai/codex
 upstream_tag: rust-v0.159.2
 official_tag_object: 8b9fa496bbf2c47aebd62e85a080b9a522a455b5
 peeled_base_commit: ff6aec96948b70d94983af2641a6b67c94faeff5
-source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
-source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
-expected_release_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
-series_entries: 23
-cargo_lock_sha256: a261a31a5e6f3114ec1d6db442e379b3f11568d514780322d03840856a84f73c
+source_commit: b525b18365ac4cd1626f15105a5b647933271e0c
+source_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
+expected_release_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
+series_entries: 32
+cargo_lock_sha256: 5c38970b607d3521c9241cd3ceb79cc32f3171e020b901437dbc364ff071e391
 module_bazel_lock_sha256: be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31
 v8_archive_sha256_x86_64-unknown-linux-gnu: 5869fdb7071b1f21f200a97ce97d20125877e0f31cd802ed99de2c53f488b06c
 v8_archive_sha256_aarch64-unknown-linux-gnu: b7177d52ad3337272fe0d3b8e778239c821a95c25d5959dec62b9efd654f7dd3
@@ -46,3 +46,12 @@ patches:
   - full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
   - full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
   - full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
+  - full/0024-replay0905-v0159.2-re-export-the-patch-series-agains.patch
+  - full/0025-feat-transportd-wire-the-X-CTD-Hookpoint-switch-v1-d.patch
+  - full/0026-feat-transportd-implement-hookpoint-v3-passthrough-G.patch
+  - full/0027-feat-transportd-align-v1-outbound-wire-shape-with-of.patch
+  - full/0028-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
+  - full/0029-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
+  - full/0030-fix-transportd-make-v1-prompt_cache_key-follow-the-o.patch
+  - full/0031-fix-transportd-carry-compact-only-x-codex-installati.patch
+  - full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch

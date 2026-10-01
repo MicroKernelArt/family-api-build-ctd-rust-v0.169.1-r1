@@ -1,7 +1,7 @@
 From 3ae7e6ded02926496b1f8cd444d7bef587be3d2b Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 10 Sep 2026 01:06:26 +0800
-Subject: [PATCH 17/23] fix(transportd): CX-0001 release evidence machinery
+Subject: [PATCH 17/32] fix(transportd): CX-0001 release evidence machinery
 
 Release gates self-contained and input-validated: export/sbom/wire/
 release-evidence gates + static-test now validate non-sh inputs,

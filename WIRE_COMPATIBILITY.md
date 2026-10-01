@@ -74,8 +74,8 @@ source commit → Cargo.lock → SBOM → image digest（/info + readiness 校�
 
 ## gate metadata（由证据提交写入；wire-gate.sh 逐字段比对 series.yaml）
 
-wire_source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
-wire_source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+wire_source_commit: b525b18365ac4cd1626f15105a5b647933271e0c
+wire_source_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
 # unverified：0.144.1 时代的线级对照（T-010）尚未对 rust-v0.159.2 基线重跑。
 # 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
 wire_status: unverified

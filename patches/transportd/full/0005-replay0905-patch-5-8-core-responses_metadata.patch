@@ -1,7 +1,7 @@
 From 723806887dbea2dad48607dfd8d1b681369a7c39 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 05/23] replay0905-patch(5/8): core responses_metadata
+Subject: [PATCH 05/32] replay0905-patch(5/8): core responses_metadata
 
 (cherry picked from commit da3d82fbc21fb781ffe71b02896c39bc0e0054c2)
 ---

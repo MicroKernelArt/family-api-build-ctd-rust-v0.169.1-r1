@@ -1,7 +1,7 @@
 From 5dad070e0ecdbf0e6723d5c43057031c772530ce Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 06/23] replay0905-patch(6/8): codex-client retry/raw
+Subject: [PATCH 06/32] replay0905-patch(6/8): codex-client retry/raw
 
 (cherry picked from commit 5638c506fc6806fea207e58062155d4fdd9e3722)
 ---

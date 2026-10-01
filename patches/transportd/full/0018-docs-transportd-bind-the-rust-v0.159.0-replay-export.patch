@@ -1,7 +1,7 @@
 From 868fadfe81e69fe44527444cf1baa7aa81edab23 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Tue, 29 Sep 2026 21:04:17 +0800
-Subject: [PATCH 18/23] docs(transportd): bind the rust-v0.159.0 replay export
+Subject: [PATCH 18/32] docs(transportd): bind the rust-v0.159.0 replay export
  and make every identity document self-consistent
 
 (cherry picked from commit 3af83a59bbb9cbbe6161c355ed377164ee0b7cb4)

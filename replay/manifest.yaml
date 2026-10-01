@@ -4,11 +4,11 @@ repository: family-api-codex
 upstream_tag: rust-v0.159.2
 upstream_tag_object: 8b9fa496bbf2c47aebd62e85a080b9a522a455b5
 base_commit: ff6aec96948b70d94983af2641a6b67c94faeff5
-source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
-source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
-release_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
-expected_release_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
-commit_count: 23
+source_commit: b525b18365ac4cd1626f15105a5b647933271e0c
+source_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
+release_commit: b525b18365ac4cd1626f15105a5b647933271e0c
+expected_release_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
+commit_count: 32
 commits:
   - commit: 86af8ae437d735cf195003e1d63bdcfc1640e389
     tree: 95993bf5ffb29a67b7cc620f3d1d1c4d8ae7f549
@@ -79,6 +79,36 @@ commits:
   - commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
     tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
     capability: upstream-identity-repin-0159-2
-# 产品提交处的 replay/manifest.yaml 只有头部（base_commit + 线名）：source_commit/
-# source_tree 与逐提交 (commit, tree) 清单是自引用的，只能由本证据提交从实际链生成。
-# 本线由 rust-v0.159.0 线整线重放而来；除证据路径外不存在 post-source 例外。
+  - commit: 5f861161fea69ec8537c25b9a4b45f6406bc611e
+    tree: cd100cdeacc3a74033de02a913d94146de8c8353
+    capability: replay-series-reexport-0159-2
+  - commit: 79de633a5926db4b561e53c0293864d4bb737ef6
+    tree: 5c589353208a0616b1c3641d10e8ad75785b1304
+    capability: hookpoint-switch-wiring-v1-default
+  - commit: 73d0c8194ab1a81e3291a0b6a31c5dac2d2cd508
+    tree: 1f85cd6cf7340a3f47952dcf755960f8fc81e3cc
+    capability: hookpoint-v3-passthrough-contract
+  - commit: eb834b950b5557b83219ff578f22f491e37d2876
+    tree: 7467b48909d11f4dd80126cb1493436e719c3dba
+    capability: v1-outbound-wire-shape-alignment
+  - commit: efb123fdd1a3a3518e2920b28282f7465073f5f6
+    tree: 4f19f4f9cbf618742fb2d3162cc1a016e9943d59
+    capability: v3-outbound-wire-alignment-mislabeled
+  - commit: d7330b7eb1f389ea16d94bcdd05ae1a7709845eb
+    tree: b8b434f8792cc3032bbe15f15c6c42e2d5fbade4
+    capability: v1-compact-wire-shape-alignment
+  - commit: 800aa5acbc865347d5b8676b9cdb9d45cfa64a39
+    tree: b8af4fc3c246c107e1d90cbac56c5fd17a9a38a8
+    capability: v1-prompt-cache-key-session-binding
+  - commit: d72d6fb2b990eee96b63129cb209f42aa84ed7a2
+    tree: 2ac312739a36e7116a6d05b89fffa5d767b745f8
+    capability: v3-compact-installation-id-carriage
+  - commit: b525b18365ac4cd1626f15105a5b647933271e0c
+    tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
+    capability: v3-compact-wire-header-sequence-pin
+# 本清单覆盖 base_commit..source_commit 的**每一个**提交（含线内证据提交
+# 5f86116；它是自引用清单的生成者，但仍是 source_commit 的祖先，故必须在列，
+# 否则 replay/gate.sh 的相邻性断言会失败）。逐提交 (commit, tree) 由本证据提交
+# 从实际链生成；除证据路径外不存在 post-source 例外。
+# 本线由 rust-v0.159.0 线整线重放而来，并于 2026-10-02 针对 hookpoint v1/v3
+# 对齐工作做了第二次重导出（series_entries 23 -> 32）。
