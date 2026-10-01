@@ -453,3 +453,195 @@ async fn v1_outbound_fidelity_worker() {
         chunk.expect("mock stream chunk");
     }
 }
+
+// ---------------------------------------------------------------------------
+// v3 出站保真（hookpoint=v3：Go 交付最终字节 + 完整出站头集）
+// ---------------------------------------------------------------------------
+
+/// worker 测试名（子进程 --exact 过滤）。
+const V3_FIDELITY_WORKER: &str = "v3_outbound_fidelity_worker";
+/// 子进程标记（防止主套件直跑真实出站）。
+const V3_FIDELITY_CHILD: &str = "CTD_V3_FIDELITY_CHILD";
+
+/// v3 交付的完整出站头集（Go 侧 `codexV3HeaderNames` / Rust 侧
+/// `V3_HEADER_ALLOWLIST` 的白名单全集，值为官方 159.2 exec 形态）。
+fn v3_delivered_outbound_headers() -> std::collections::BTreeMap<String, String> {
+    [
+        ("version", "0.159.2"),
+        ("x-codex-beta-features", "remote_compaction_v2"),
+        (
+            "x-codex-window-id",
+            "0198f2b0-0000-7000-8000-000000000002:1",
+        ),
+        (
+            "x-codex-turn-metadata",
+            r#"{"request_kind":"turn","session_id":"0198f2b0-0000-7000-8000-000000000001","thread_id":"0198f2b0-0000-7000-8000-000000000002","turn_id":"0198f2b0-0000-7000-8000-000000000003","root_turn_id":"0198f2b0-0000-7000-8000-000000000003","window_id":"0198f2b0-0000-7000-8000-000000000002:1","window_number":1}"#,
+        ),
+        ("x-openai-internal-codex-responses-lite", "true"),
+        ("x-codex-routing-hint", "model=gpt-5.6-sol"),
+        (
+            "x-client-request-id",
+            "0198f2b0-0000-7000-8000-000000000001",
+        ),
+        ("session-id", "0198f2b0-0000-7000-8000-000000000001"),
+        ("thread-id", "0198f2b0-0000-7000-8000-000000000002"),
+        ("accept", "text/event-stream"),
+        ("content-encoding", "zstd"),
+        ("content-type", "application/json"),
+        ("originator", "codex_exec"),
+        (
+            "user-agent",
+            "codex_exec/0.159.2 (Mac OS 15.5.0; arm64) WarpTerminal/v1 (codex_exec; 0.159.2)",
+        ),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_string(), value.to_string()))
+    .collect()
+}
+
+/// ★ v3 出站保真（真实出站构造 → mock 上游观测）：头名序列必须逐位等于官方
+/// 159.2 的 18 头构造序，body 必须是 Go 交付的 zstd 字节**逐字**（ctd 不解析、
+/// 不重压、不改头），`content-length` 必须等于交付字节数。
+///
+/// 这条断言覆盖单元测试无法覆盖的那一段：seq 由
+/// `extra_headers` → `auth.apply_auth` → 尾段注入 → reqwest 默认头 →
+/// hyper 传输头 的真实插入序决定，即"Auth 之后才是 originator/user-agent"
+/// 这个**只有 ctd 知道**的切分点是否真的落到线上。
+#[test]
+fn v3_outbound_matches_official_1592_wire_shape() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+    let addr = listener.local_addr().expect("addr");
+    let server = std::thread::spawn(move || serve_one(&listener));
+
+    let exe = std::env::current_exe().expect("current test binary");
+    let out = Command::new(exe)
+        .args([V3_FIDELITY_WORKER, "--exact", "--test-threads=1"])
+        .env("CTD_TEST_UPSTREAM_BASE_URL", format!("http://{addr}"))
+        .env(V3_FIDELITY_CHILD, "1")
+        .output()
+        .expect("spawn worker child");
+    assert!(
+        out.status.success(),
+        "worker failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+
+    let (head, body) = server.join().expect("mock server thread");
+    let mut lines = head.split("\r\n");
+    assert!(
+        lines
+            .next()
+            .unwrap_or_default()
+            .starts_with("POST /responses"),
+        "unexpected request line: {head}"
+    );
+    let names: Vec<String> = lines
+        .take_while(|line| !line.is_empty())
+        .filter_map(|line| line.split_once(':'))
+        .map(|(name, _)| name.trim().to_ascii_lowercase())
+        .collect();
+    // ★ 头序（含顺序）逐位等于官方构造序——v3 交付前是字母序（15 头）。
+    assert_eq!(names, OFFICIAL_POST_HEADER_SEQUENCE, "wire head:\n{head}");
+
+    // content-length = 交付的压缩体字节数（传输栈按最终字节生成）。
+    let declared: usize = head
+        .split("\r\n")
+        .filter_map(|line| line.split_once(':'))
+        .find(|(name, _)| name.trim().eq_ignore_ascii_case("content-length"))
+        .and_then(|(_, value)| value.trim().parse().ok())
+        .expect("content-length present");
+    assert_eq!(declared, body.len(), "content-length must be the delivered size");
+    assert_eq!(
+        &body[..4],
+        &[0x28, 0xb5, 0x2f, 0xfd],
+        "delivered body must be a zstd frame"
+    );
+
+    // ★ body 逐字透传：ctd 不解析不改写 ⇒ 解压后即 Go 交付的明文。
+    let plain = zstd::stream::decode_all(body.as_slice()).expect("zstd body");
+    let request: serde_json::Value = serde_json::from_slice(&plain).expect("json body");
+    assert_eq!(request["model"], "gpt-5.6-sol");
+    assert_eq!(request["client_metadata"]["guardian_credits_requested"], "true");
+    assert_eq!(request["client_metadata"]["mcp_attribution"], r#"{"status":"none"}"#);
+    // I6/I7：body 与请求头同源。
+    let header_turn_metadata = head
+        .split("\r\n")
+        .filter_map(|line| line.split_once(':'))
+        .find(|(name, _)| name.trim().eq_ignore_ascii_case("x-codex-turn-metadata"))
+        .map(|(_, value)| value.trim().to_string())
+        .expect("x-codex-turn-metadata header");
+    assert_eq!(
+        request["client_metadata"]["x-codex-turn-metadata"].as_str().unwrap(),
+        header_turn_metadata
+    );
+}
+
+/// 子进程内执行 v3 真实出站（Go 交付形态：最终字节 + 完整出站头集）。
+#[tokio::test]
+async fn v3_outbound_fidelity_worker() {
+    if std::env::var(V3_FIDELITY_CHILD).is_err() {
+        return;
+    }
+    let base = std::env::var("CTD_TEST_UPSTREAM_BASE_URL").unwrap_or_default();
+    assert!(
+        !base.is_empty(),
+        "run via v3_outbound_matches_official_1592_wire_shape"
+    );
+
+    let ctx = RequestContext {
+        request_id: "req_v3_fidelity".to_string(),
+        account_key: "acct".to_string(),
+        credential_revision: "rev-1".to_string(),
+        access_token: SecretString::new("test-token"),
+        chatgpt_account_id: Some(SecretString::new("acc-1")),
+        proxy_kind: codex_transportd::contract::ProxyKind::Direct,
+        session: Some(SessionSnapshot {
+            session_id: "0198f2b0-0000-7000-8000-000000000001".to_string(),
+            thread_id: "0198f2b0-0000-7000-8000-000000000002".to_string(),
+            window_id: "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+        }),
+        outbound_headers: v3_delivered_outbound_headers(),
+        hookpoint: codex_transportd::contract::Hookpoint::V3,
+        ..Default::default()
+    };
+    let pool = ClientPool::new(std::sync::Arc::new(Metrics::default()));
+
+    // Go 交付的最终字节：明文（含官方 client_metadata 9 键）→ zstd（模拟
+    // `compressCodexV3Body`：同一权威在同一时刻产出字节与 content-encoding）。
+    let plain = serde_json::json!({
+        "model": "gpt-5.6-sol",
+        "input": [{
+            "role": "user",
+            "content": [{"type": "input_text", "text": "v3-fidelity-marker"}],
+        }],
+        "store": false,
+        "stream": true,
+        "client_metadata": {
+            "session_id": "0198f2b0-0000-7000-8000-000000000001",
+            "thread_id": "0198f2b0-0000-7000-8000-000000000002",
+            "turn_id": "0198f2b0-0000-7000-8000-000000000003",
+            "root_turn_id": "0198f2b0-0000-7000-8000-000000000003",
+            "x-codex-window-id": "0198f2b0-0000-7000-8000-000000000002:1",
+            "x-codex-installation-id": "installation-1",
+            "guardian_credits_requested": "true",
+            "mcp_attribution": "{\"status\":\"none\"}",
+            "x-codex-turn-metadata": r#"{"request_kind":"turn","session_id":"0198f2b0-0000-7000-8000-000000000001","thread_id":"0198f2b0-0000-7000-8000-000000000002","turn_id":"0198f2b0-0000-7000-8000-000000000003","root_turn_id":"0198f2b0-0000-7000-8000-000000000003","window_id":"0198f2b0-0000-7000-8000-000000000002:1","window_number":1}"#,
+        },
+    })
+    .to_string();
+    let delivered = zstd::stream::encode_all(plain.as_bytes(), 3).expect("zstd encode");
+
+    let resp = codex_transportd::transport::responses_v3::execute_responses_v3_raw(
+        &pool,
+        &ctx,
+        Bytes::from(delivered),
+    )
+    .await
+    .expect("v3 outbound construction must execute");
+    assert_eq!(resp.status, 200, "mock upstream answered 200");
+    let mut stream = resp.body;
+    while let Some(chunk) = stream.next().await {
+        chunk.expect("mock stream chunk");
+    }
+}

@@ -7,8 +7,9 @@
 //! | | v1 | v3 |
 //! |---|---|---|
 //! | headers | Go 交付白名单**子集**，ctd 自派生其余 | Go 交付白名单**全集**，ctd 只做白名单过滤 |
+//! | header 次序 | ctd 按官方构造序投影 | **同一张表**（[`V3_HEADER_ORDER`]），同一切分点 |
 //! | body | ctd 解析 → 改投影 → `serde_json` 重编码 | Go 的**最终字节**，ctd 不解析不改写 |
-//! | `content-encoding` | ctd 权威，恒 `zstd`（官方形态） | **Go 权威**，ctd 只校验 |
+//! | `content-encoding` | ctd 权威，恒 `zstd`（官方形态） | **Go 权威**，ctd 只校验（含 body↔头一致性） |
 //!
 //! ★ 边界处理（认证注入 / 超时 / 重试 / SSE 转发 / 审计）全部保留，且由
 //! 与 v1 **同一段**代码承担：认证注入在
@@ -27,14 +28,34 @@
 //! | R6 | `content-type` 必须由 Go 提供，ctd 不补；缺失 ⇒ `missing_v3_required_header` |
 //! | R7 | 灰度顺序先 identity 后 zstd；契约当天即允许 zstd（对齐官方只需改 Go 一处，ctd 零改动） |
 //!
-//! 本模块另外实现一条**比 R4 更强**的一致性检查（[`check_v3_body_encoding`]）：
-//! 声明 `zstd` ⇒ body 必须带 zstd frame magic；未声明 ⇒ body 不得带该 magic。
-//! 这是"上游解压失败"的唯一结构性防线——单靠闭集校验挡不住
-//! "Go 压了但忘写头"这一方向。
+/// 本模块另外实现一条**比 R4 更强**的一致性检查（[`check_v3_body_encoding`]）：
+/// 声明 `zstd` ⇒ body 必须带 zstd frame magic；未声明 ⇒ body 不得带该 magic。
+/// 这是"上游解压失败"的唯一结构性防线——单靠闭集校验挡不住
+/// "Go 压了但忘写头"这一方向。
+///
+/// ★★ 头序权威：ctd（[`V3_HEADER_ORDER`]）
+///
+/// v3 的**头值/头存在性**权威是 Go（白名单内的键，值原样），但**相对次序**
+/// 由 ctd 按官方构造序投影——与 v1 同一张表、同一注入点。理由：
+///
+/// - 官方序的切分点是 `authorization` / `chatgpt-account-id`（第 13/14 位）
+///   与 `originator` / `user-agent`（第 15/16 位）之间的那道缝。第 13/14 位由
+///   ctd 的 `auth.apply_auth` 注入，第 15/16 位官方交给 `reqwest` client 默认头
+///   承载（[`super::official_adapter::official_auth_with_trailing_headers`]）——
+///   **这个切分点只有 ctd 知道**。即使让 Go 交付有序列表，ctd 仍必须持有序知识
+///   才能把尾段两头顶到 auth 之后 ⇒ 把整表放 ctd 是单一权威、单一漂移点。
+/// - ctd 侧因此**零** wire 契约变更：`X-CTD-Outbound-Headers` 仍是
+///   JSON object<string,string>（Go 侧零改动 ⇒ 对 v1 的影响面为零）。
+/// - 次序不属于"header 决策"：v3 下 ctd 不决定**发哪些头、发什么值**
+///   （那是白名单 + Go），只决定**官方不变量的呈现次序**——一个传输层投影。
+
+use std::collections::BTreeMap;
 
 use bytes::Bytes;
 use futures::StreamExt;
 use http::HeaderMap;
+use http::HeaderName;
+use http::HeaderValue;
 
 use crate::contract::RawUpstreamResponse;
 use crate::contract::RequestContext;
@@ -255,18 +276,140 @@ pub fn audit_v3_headers(headers: &HeaderMap) -> Result<(), LocalError> {
     Ok(())
 }
 
-/// v3 出站头集准备：白名单过滤 → 必需头 → body 形态一致性 → 审计。
+/// v3 出站「Go 交付头」的**官方确定性构造序**——官方 16 个核心头。
+///
+/// 权威来源：`tools/ctd-parity/baseline/official-1592.json`
+/// 的 `headers_main_post`（5 组采集 × 90 条 POST **零变异**，`order_stable:
+/// true`，`casing: 全小写`）第 1–16 行：
+///
+/// ```text
+///  1 version                              9  thread-id
+///  2 x-codex-beta-features               10  accept
+///  3 x-codex-window-id                   11  content-encoding
+///  4 x-codex-turn-metadata               12  content-type
+///  5 x-openai-internal-codex-responses-lite  13  authorization
+///  6 x-codex-routing-hint                14  chatgpt-account-id
+///  7 x-client-request-id                 15  originator
+///  8 session-id                          16  user-agent
+/// ```
+///
+/// 第 17/18 位 `host` / `content-length` 是传输栈自有（hyper 按最终字节生成），
+/// 不属于本表，也不可能进入 [`V3_HEADER_ALLOWLIST`]（R5）。
+///
+/// ★ 与 v1 的关系：v1 的 [`super::responses::V1_METADATA_HEADER_ORDER`] 只覆盖
+/// 官方序列第 2–9 位（v1 由 ctd 自派生的那一段），其余位由各自的承载通道按序
+/// 落位。v3 下这些头**全部由 Go 交付**，因此本表必须覆盖整段 1–16，且第
+/// 13/14 位（auth）与第 15/16 位（尾段）由 ctd 的注入点把守——
+/// 见模块头「头序权威：ctd」。
+///
+/// ★ 缺位处理：本表是**投影模板**而非"必需集"。Go 未交付的名字直接跳过，
+/// 不写空值、不留占位；剩余头的**相对次序**保持官方序。表外名字（当前
+/// [`V3_HEADER_ALLOWLIST`] 相对本表无余集，故恒为空）按确定性键序追加在自派生
+/// 段之后，只保证"不丢、不乱序"。
+///
+/// ★ 值：**逐字使用 Go 交付值**，v3 下 ctd 不做任何归一化（包括
+/// `originator` / `user-agent`——v1 会按 [`official_adapter::canonical_user_agent`]
+/// 重写，那是 v1 专用，v3 不适用）。
+pub const V3_HEADER_ORDER: &[&str] = &[
+    "version",
+    "x-codex-beta-features",
+    "x-codex-window-id",
+    "x-codex-turn-metadata",
+    "x-openai-internal-codex-responses-lite",
+    "x-codex-routing-hint",
+    "x-client-request-id",
+    "session-id",
+    "thread-id",
+    "accept",
+    "content-encoding",
+    "content-type",
+    "authorization",
+    "chatgpt-account-id",
+    "originator",
+    "user-agent",
+];
+
+/// 官方位置在 `authorization` / `chatgpt-account-id` **之后**的两个头
+/// （官方序列第 15/16 位），与 v1 的 [`super::responses::V1_TRAILING_HEADER_ORDER`]
+/// 逐字相同——两者由**同一个**注入点
+/// [`official_adapter::official_auth_with_trailing_headers`] 承载，语义一致：
+/// 仅当目标头不存在时写入。
+///
+/// ★ 这两个头必须在 `extra_headers` 阶段**排除**：在 auth 之前注入会让头序
+/// 立刻偏离官方（v1 的同一结论）。
+pub const V3_TRAILING_HEADER_ORDER: &[&str] = &["originator", "user-agent"];
+
+/// v3 承载头 →（auth 段之前的头集, 官方尾段头集）。
+///
+/// 插入序即官方构造序（`http::HeaderMap` 的迭代序 == 插入序，本函数只
+/// `insert` 不 `remove` ⇒ 无 vacant 槽复用）。这与 v1
+/// [`super::responses::outbound_headers`] 的手法一致：**不得**改用
+/// `BTreeMap` / `HashMap` 迭代序，那是字母序。
+///
+/// 解析期已完成名字/值的合法性校验（[`crate::contract::headers::parse_outbound_headers`]），
+/// 因此这里只做逐键搬运；非法项跳过而非 panic（与 `outbound_header_map` 同语义）。
+pub fn order_v3_outbound_headers(
+    outbound: &BTreeMap<String, String>,
+) -> (HeaderMap, HeaderMap) {
+    let mut headers = HeaderMap::new();
+    let mut trailing = HeaderMap::new();
+
+    for &name in V3_HEADER_ORDER {
+        let Some(value) = outbound.get(name) else {
+            continue;
+        };
+        let Ok(value) = HeaderValue::from_str(value) else {
+            continue;
+        };
+        let name = HeaderName::from_static(name);
+        if V3_TRAILING_HEADER_ORDER.contains(&name.as_str()) {
+            trailing.insert(name, value);
+        } else {
+            headers.insert(name, value);
+        }
+    }
+
+    // 表外名字（当前恒空）：确定性键序追加，不丢不乱序。
+    for (name, value) in outbound {
+        if V3_HEADER_ORDER.contains(&name.as_str()) {
+            continue;
+        }
+        let (Ok(name), Ok(value)) = (
+            HeaderName::from_bytes(name.as_bytes()),
+            HeaderValue::from_str(value),
+        ) else {
+            continue;
+        };
+        headers.insert(name, value);
+    }
+    (headers, trailing)
+}
+
+/// v3 出站头集准备：官方序投影 → 必需头 → body 形态一致性 → 审计。
 ///
 /// 全部在任何 upstream I/O 之前完成；任一步失败即 fail closed（绝不静默
 /// 回落 v1 —— 回落会污染 A/B 观测，且与既有"rust_sidecar 无自动回退"
 /// 纪律冲突，docs/20 §2.5）。
-pub fn prepare_v3_headers(ctx: &RequestContext, body: &[u8]) -> Result<HeaderMap, LocalError> {
-    let headers = ctx.outbound_header_map();
+///
+/// 返回 `(leading, trailing)`：`leading` 是 auth 段之前的头集（官方序列第
+/// 1–12 位），`trailing` 是官方序列第 15/16 位的 `originator` / `user-agent`，
+/// 必须交给 [`official_adapter::official_auth_with_trailing_headers`] 注入。
+///
+/// 校验对象是 `leading`：必需头（`accept` / `content-type`）与审计头
+/// （`session-id` / `thread-id` / `x-codex-window-id` / `x-client-request-id` /
+/// `x-codex-turn-metadata`）全部落在第 1–12 位，尾段两头的存在性不参与校验
+/// （官方 app-server 形态下 `originator` 必发、`user-agent` 必发；缺失时只是
+/// 交由 client 默认头承载，与 v1 同语义）。
+pub fn prepare_v3_headers(
+    ctx: &RequestContext,
+    body: &[u8],
+) -> Result<(HeaderMap, HeaderMap), LocalError> {
+    let (headers, trailing) = order_v3_outbound_headers(&ctx.outbound_headers);
     check_v3_required_headers(&headers)?;
     let encoding = resolve_v3_body_encoding(&headers)?;
     check_v3_body_encoding(encoding, body)?;
     audit_v3_headers(&headers)?;
-    Ok(headers)
+    Ok((headers, trailing))
 }
 
 /// 执行 v3 Responses HTTP/SSE 原样透传。
@@ -275,7 +418,7 @@ pub async fn execute_responses_v3_raw(
     ctx: &RequestContext,
     body: Bytes,
 ) -> Result<RawUpstreamResponse, LocalError> {
-    let headers = prepare_v3_headers(ctx, &body)?;
+    let (headers, trailing_headers) = prepare_v3_headers(ctx, &body)?;
 
     // capture 旁路：与 v1 同一入队点（校验通过后、发上游前）。
     let capture_handle = crate::capture::begin(ctx);
@@ -292,7 +435,7 @@ pub async fn execute_responses_v3_raw(
         Operation::Responses,
     )
     .await?;
-    let auth = official_adapter::official_auth(ctx);
+    let auth = official_adapter::official_auth_with_trailing_headers(ctx, trailing_headers);
     // ★ bare provider：v3 的头集完全由 Go 决定，provider 不得再贡献 version。
     let provider = official_adapter::chatgpt_provider_bare();
     let api_client =
@@ -329,7 +472,7 @@ pub async fn execute_compact_v3_raw(
     ctx: &RequestContext,
     body: Bytes,
 ) -> Result<RawUpstreamResponse, LocalError> {
-    let headers = prepare_v3_headers(ctx, &body)?;
+    let (headers, trailing_headers) = prepare_v3_headers(ctx, &body)?;
 
     let capture_handle = crate::capture::begin(ctx);
     if let Some(handle) = &capture_handle {
@@ -345,7 +488,7 @@ pub async fn execute_compact_v3_raw(
         Operation::ResponsesCompact,
     )
     .await?;
-    let auth = official_adapter::official_auth(ctx);
+    let auth = official_adapter::official_auth_with_trailing_headers(ctx, trailing_headers);
     let provider = official_adapter::chatgpt_provider_bare();
     let api_client =
         codex_api::ResponsesClient::new(official_adapter::transport_for(client), provider, auth);
@@ -613,5 +756,182 @@ mod tests {
                 "{name} 不得进入 v3 白名单"
             );
         }
+    }
+
+    const ORDER_TURN_METADATA: &str = r#"{"session_id":"0198f2b0-0000-7000-8000-000000000001","thread_id":"0198f2b0-0000-7000-8000-000000000002","window_id":"0198f2b0-0000-7000-8000-000000000002:1","window_number":1}"#;
+
+    /// Go 交付的**完整** v3 头集（白名单全 14 名，值为官方 159.2 exec 形态）。
+    fn full_outbound_headers() -> BTreeMap<String, String> {
+        [
+            ("version", "0.159.2"),
+            ("x-codex-beta-features", "remote_compaction_v2"),
+            (
+                "x-codex-window-id",
+                "0198f2b0-0000-7000-8000-000000000002:1",
+            ),
+            ("x-codex-turn-metadata", ORDER_TURN_METADATA),
+            ("x-openai-internal-codex-responses-lite", "true"),
+            ("x-codex-routing-hint", "model=gpt-5.6-sol"),
+            (
+                "x-client-request-id",
+                "0198f2b0-0000-7000-8000-000000000001",
+            ),
+            ("session-id", "0198f2b0-0000-7000-8000-000000000001"),
+            ("thread-id", "0198f2b0-0000-7000-8000-000000000002"),
+            ("accept", "text/event-stream"),
+            ("content-encoding", "zstd"),
+            ("content-type", "application/json"),
+            ("originator", "codex_exec"),
+            (
+                "user-agent",
+                "codex_exec/0.159.2 (Mac OS 15.5.0; arm64) WarpTerminal/v1 (codex_exec; 0.159.2)",
+            ),
+        ]
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect()
+    }
+
+    fn v3_ctx(outbound: BTreeMap<String, String>) -> RequestContext {
+        RequestContext {
+            outbound_headers: outbound,
+            ..Default::default()
+        }
+    }
+
+    fn names(headers: &HeaderMap) -> Vec<&str> {
+        headers.keys().map(|name| name.as_str()).collect()
+    }
+
+    /// ★ 官方头序复刻（`baseline/official-1592.json:headers_main_post` 第 1–16 行）。
+    /// 定序权威在 ctd：投影必须逐位等于官方构造序，**不得**是字母序。
+    #[test]
+    fn official_outbound_header_order_is_reproduced() {
+        let (leading, trailing) = order_v3_outbound_headers(&full_outbound_headers());
+        assert_eq!(
+            names(&leading),
+            &[
+                "version",
+                "x-codex-beta-features",
+                "x-codex-window-id",
+                "x-codex-turn-metadata",
+                "x-openai-internal-codex-responses-lite",
+                "x-codex-routing-hint",
+                "x-client-request-id",
+                "session-id",
+                "thread-id",
+                "accept",
+                "content-encoding",
+                "content-type",
+            ]
+        );
+        assert_eq!(names(&trailing), &["originator", "user-agent"]);
+    }
+
+    /// ★ 拼接点：`extra_headers`（leading）→ `apply_auth`（authorization /
+    /// chatgpt-account-id）→ 尾段注入（originator / user-agent）必须复原官方
+    /// 第 1–16 位。这条断言把"切分点只有 ctd 知道"这一理由固化成可执行形式。
+    #[test]
+    fn auth_splices_between_leading_and_trailing() {
+        let (mut leading, trailing) = order_v3_outbound_headers(&full_outbound_headers());
+        leading.insert(
+            HeaderName::from_static("authorization"),
+            HeaderValue::from_static("Bearer test"),
+        );
+        leading.insert(
+            HeaderName::from_static("chatgpt-account-id"),
+            HeaderValue::from_static("acct"),
+        );
+        for (name, value) in &trailing {
+            leading.insert(name.clone(), value.clone());
+        }
+        assert_eq!(names(&leading).as_slice(), V3_HEADER_ORDER);
+    }
+
+    /// 缺位处理：Go 未交付的名字**跳过**（不写空值、不留占位），剩余头仍
+    /// 保持官方相对序。
+    #[test]
+    fn absent_headers_are_skipped_without_placeholder() {
+        let mut delivered = full_outbound_headers();
+        // identity 形态（无 content-encoding）＋ 未交付 version / routing-hint。
+        delivered.remove("content-encoding");
+        delivered.remove("x-codex-routing-hint");
+        delivered.remove("version");
+        let (leading, _) = order_v3_outbound_headers(&delivered);
+        assert_eq!(
+            names(&leading),
+            &[
+                "x-codex-beta-features",
+                "x-codex-window-id",
+                "x-codex-turn-metadata",
+                "x-openai-internal-codex-responses-lite",
+                "x-client-request-id",
+                "session-id",
+                "thread-id",
+                "accept",
+                "content-type",
+            ]
+        );
+        for name in names(&leading) {
+            assert!(!leading.get(name).expect("存在").is_empty(), "{name} 非空");
+        }
+    }
+
+    /// 序模板必须覆盖白名单全集（余集 = 官方第 13/14 位，由 ctd auth 注入）
+    /// ⇒ 白名单内的键不会落进"表外追加"分支而乱序。
+    #[test]
+    fn order_template_covers_allowlist() {
+        for name in V3_HEADER_ALLOWLIST {
+            assert!(V3_HEADER_ORDER.contains(name), "{name} 必须在官方序模板内");
+        }
+        assert_eq!(
+            V3_HEADER_ORDER.len(),
+            V3_HEADER_ALLOWLIST.len() + 2,
+            "官方 16 核心头 = Go 交付 14 名 + ctd 注入的 authorization / chatgpt-account-id"
+        );
+        assert!(!V3_HEADER_ALLOWLIST.contains(&"authorization"));
+        assert!(!V3_HEADER_ALLOWLIST.contains(&"chatgpt-account-id"));
+    }
+
+    /// 表外名字（白名单外，当前解析期即被丢弃 ⇒ 恒空）仍确定性追加，不丢。
+    #[test]
+    fn out_of_template_names_are_appended_deterministically() {
+        let mut delivered = full_outbound_headers();
+        delivered.insert("openai-beta".to_string(), "responses=experimental".to_string());
+        let (leading, _) = order_v3_outbound_headers(&delivered);
+        assert_eq!(
+            leading.get("openai-beta").map(|value| value.to_str().unwrap()),
+            Some("responses=experimental")
+        );
+        assert_eq!(names(&leading).last(), Some(&"openai-beta"));
+    }
+
+    /// `prepare_v3_headers` 的端到端形态：identity body 通过，且尾段两头被
+    /// 从 leading 中切出（交给 `official_auth_with_trailing_headers`）。
+    #[test]
+    fn prepare_v3_headers_splits_trailing_for_identity_body() {
+        let mut delivered = full_outbound_headers();
+        delivered.remove("content-encoding");
+        let (leading, trailing) =
+            prepare_v3_headers(&v3_ctx(delivered), br#"{"model":"gpt-5"}"#).expect("identity 通过");
+        assert!(!leading.contains_key("originator"));
+        assert!(!leading.contains_key("user-agent"));
+        assert_eq!(names(&trailing), &["originator", "user-agent"]);
+        assert_eq!(names(&leading).first(), Some(&"version"));
+    }
+
+    /// `prepare_v3_headers` 的端到端形态：zstd body + `content-encoding: zstd`
+    /// （Go 压好交付的官方形态）通过，且头序不变。
+    #[test]
+    fn prepare_v3_headers_accepts_go_delivered_zstd() {
+        let compressed = [ZSTD_FRAME_MAGIC.as_slice(), b"payload"].concat();
+        let (leading, trailing) =
+            prepare_v3_headers(&v3_ctx(full_outbound_headers()), &compressed).expect("zstd 通过");
+        assert_eq!(
+            leading.get("content-encoding").map(|v| v.to_str().unwrap()),
+            Some("zstd")
+        );
+        assert_eq!(names(&leading).len(), 12);
+        assert_eq!(names(&trailing), &["originator", "user-agent"]);
     }
 }
