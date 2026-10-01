@@ -1,12 +1,13 @@
 //! 低基数观测（TLS-CTD-001 §17）。
 //!
-//! 指标只有 operation/outcome/phase/proxy_kind/route_class 等低基数标签；
-//! 禁止 account id、user id、session/thread/window、request id、token
+//! 指标只有 operation/outcome/phase/proxy_kind/route_class/hookpoint 等低基数
+//! 标签；禁止 account id、user id、session/thread/window、request id、token
 //! revision 原文、proxy host/URL 作为 label（INV-012）。
 
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
+use crate::contract::Hookpoint;
 use crate::contract::ProxyKind;
 use crate::contract::RequestPurpose;
 use crate::contract::operation::Operation;
@@ -137,21 +138,27 @@ pub struct RequestObservation {
     pub operation: Operation,
     pub proxy_kind: ProxyKind,
     pub purpose: RequestPurpose,
+    /// hookpoint 开关（v1/v3）：只有两个值，不违反 INV-012 低基数纪律。
+    pub hookpoint: Hookpoint,
 }
 
 pub fn observe_request_start(metrics: &Metrics, obs: RequestObservation) {
     let _ = obs;
     metrics.inflight.fetch_add(1, Ordering::Relaxed);
-    metrics
-        .requests_total
-        .increment(format!("{}|{}", obs.operation.metric_label(), "started"))
+    metrics.requests_total.increment(format!(
+        "{}|{}|{}",
+        obs.operation.metric_label(),
+        obs.hookpoint.as_str(),
+        "started"
+    ));
 }
 
 pub fn observe_request_end(metrics: &Metrics, obs: RequestObservation, outcome: Outcome) {
     metrics.inflight.fetch_sub(1, Ordering::Relaxed);
     metrics.requests_total.increment(format!(
-        "{}|{}",
+        "{}|{}|{}",
         obs.operation.metric_label(),
+        obs.hookpoint.as_str(),
         outcome.as_str()
     ));
 }
@@ -176,12 +183,36 @@ mod tests {
             operation: Operation::Responses,
             proxy_kind: ProxyKind::Direct,
             purpose: RequestPurpose::Request,
+            hookpoint: Hookpoint::V1,
         };
         observe_request_start(&metrics, obs);
         observe_request_end(&metrics, obs, Outcome::Success);
         let snapshot = metrics.requests_total.snapshot();
-        assert_eq!(snapshot.get("responses|started"), Some(&1));
-        assert_eq!(snapshot.get("responses|success"), Some(&1));
+        assert_eq!(snapshot.get("responses|v1|started"), Some(&1));
+        assert_eq!(snapshot.get("responses|v1|success"), Some(&1));
+    }
+
+    #[test]
+    fn hookpoint_splits_the_request_key() {
+        // hookpoint 只有两个取值：A/B 观测在同一 operation 下可区分，
+        // 且基数有界（INV-012）。
+        let metrics = Metrics::default();
+        for hookpoint in [Hookpoint::V1, Hookpoint::V3] {
+            let obs = RequestObservation {
+                operation: Operation::Responses,
+                proxy_kind: ProxyKind::Direct,
+                purpose: RequestPurpose::Request,
+                hookpoint,
+            };
+            observe_request_start(&metrics, obs);
+            observe_request_end(&metrics, obs, Outcome::Success);
+        }
+        let snapshot = metrics.requests_total.snapshot();
+        assert_eq!(snapshot.len(), 4);
+        assert_eq!(snapshot.get("responses|v1|started"), Some(&1));
+        assert_eq!(snapshot.get("responses|v3|started"), Some(&1));
+        assert_eq!(snapshot.get("responses|v1|success"), Some(&1));
+        assert_eq!(snapshot.get("responses|v3|success"), Some(&1));
     }
 
     #[test]

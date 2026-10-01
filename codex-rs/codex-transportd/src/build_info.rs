@@ -74,4 +74,41 @@ pub const CAPABILITIES: &[&str] = &[
     "attachment_download",
     "file_content_fetch",
     "agent_task_register",
+    // hookpoint 开关（步骤 5）：v1 是默认实现（恒存在）；v3 表示本构建实现了
+    // responses 族的 v3 路径。Go 侧 EnsureReady 据此对 hookpoint==v3 fail
+    // closed，杜绝"Go 已发 v3、旧 ctd 按 v1 服务"的静默混合。
+    "hookpoint_v1",
+    "hookpoint_v3",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::CAPABILITIES;
+
+    #[test]
+    fn hookpoint_capabilities_are_advertised() {
+        // 步骤 5：Go 的 EnsureReady 对 hookpoint==v3 做 capability 门。
+        // 若本构建不广告 hookpoint_v3，灰度会被永久挡住（fail closed）；
+        // hookpoint_v1 恒存在（v1 是默认实现）。
+        for required in ["hookpoint_v1", "hookpoint_v3"] {
+            assert!(
+                CAPABILITIES.contains(&required),
+                "capabilities 必须广告 {required}"
+            );
+        }
+    }
+
+    #[test]
+    fn capabilities_are_unique_and_lower_snake_case() {
+        let mut seen = std::collections::BTreeSet::new();
+        for capability in CAPABILITIES {
+            assert!(seen.insert(*capability), "capability 重复：{capability}");
+            assert!(
+                capability
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'),
+                "capability 形状非法：{capability}"
+            );
+        }
+    }
+}

@@ -57,6 +57,11 @@ pub const USER_ID_HEADER: &str = "x-ctd-user-id";
 /// 编码契约（两端逐字一致）：UTF-8 JSON object，键为小写官方 header 名，
 /// 值为 Go 侧已按账号身份 scope 完成的最终出站值。
 pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
+/// hookpoint 实现开关（Go 侧 mode=rust_sidecar 且 operation ∈ responses 族时
+/// 才会传递）。闭集 `v1|v3`；**缺失 = `v1`**（向后兼容：旧 Go 不传 ⇒ 行为与
+/// 今天逐字一致）；未知值 → typed contract error `invalid_hookpoint`，在任何
+/// upstream I/O 之前 fail closed。解析形态照抄 [`PROXY_KIND_HEADER`]。
+pub const HOOKPOINT_HEADER: &str = "x-ctd-hookpoint";
 
 /// 允许承载到上游投影的官方 header 白名单（小写）。
 /// 与 Go 侧 `codex_transport_integration.go` 的 `codexCarriedHeaderNames`
@@ -155,6 +160,9 @@ pub struct RequestContext {
     /// 解析时只保留 [`CARRIED_HEADER_NAMES`]，凭据键 fail closed；注入端原样
     /// 写入上游投影（覆盖 sidecar 本地投影）。
     pub carried_headers: BTreeMap<String, String>,
+    /// hookpoint 开关（v1/v3；缺失 = v1）。v1 与 v3 走同一条实现路径，
+    /// 差异只在观测标记（本任务不实现 v3 语义）。
+    pub hookpoint: Hookpoint,
     /// 内部 traceparent（只建立 Go→Rust child span；不得复制到 upstream）。
     pub traceparent: Option<String>,
 }
@@ -189,6 +197,50 @@ impl ProxyKind {
             Self::Https => "https",
             Self::Socks5 => "socks5",
             Self::Socks5h => "socks5h",
+        }
+    }
+}
+
+/// Codex hookpoint 实现选择（v1/v3）。闭集枚举，解析形态与 [`ProxyKind`]
+/// 逐字同形。
+///
+/// 作用域：hookpoint 只对 `responses` / `responses_compact` 有定义；Go 侧
+/// 对其它 operation 一律按 v1 处理且不传该头。若越界传入 v3，Rust 侧以
+/// typed contract error `invalid_hookpoint_scope` fail closed。
+///
+/// 本任务只做开关接线：`v3` 与 `v1` 走**同一条实现路径**（携带 v3 标记），
+/// 不引入任何 body/header 行为差异。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Hookpoint {
+    #[default]
+    V1,
+    V3,
+}
+
+impl Hookpoint {
+    /// 闭集解析：未知值返回 `None`（调用方 fail closed）。
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "v1" => Some(Self::V1),
+            "v3" => Some(Self::V3),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::V1 => "v1",
+            Self::V3 => "v3",
+        }
+    }
+
+    /// 该 hookpoint 是否对给定 operation 有定义（作用域收窄）。
+    pub fn supports_operation(&self, operation: Operation) -> bool {
+        match self {
+            // v1 是默认实现，任何 operation 都按 v1 执行。
+            Self::V1 => true,
+            // v3 只覆盖 responses 族（§2.3）。
+            Self::V3 => matches!(operation, Operation::Responses | Operation::ResponsesCompact),
         }
     }
 }
@@ -306,6 +358,30 @@ pub fn parse_request_context(
         }
     };
 
+    // 5b. hookpoint（闭集 v1|v3；缺失 = v1；未知值 / 越界 fail closed）。
+    // 与 proxy kind 同段、同形；同样在任何 upstream I/O 之前完成。
+    let hookpoint = match header_str(headers, HOOKPOINT_HEADER) {
+        None => Hookpoint::V1,
+        Some(raw) => Hookpoint::parse(raw).ok_or_else(|| {
+            LocalError::new(
+                "invalid_hookpoint",
+                ErrorClass::Contract,
+                ErrorPhase::Validate,
+                false,
+                "unknown X-CTD-Hookpoint",
+            )
+        })?,
+    };
+    if !hookpoint.supports_operation(operation) {
+        return Err(LocalError::new(
+            "invalid_hookpoint_scope",
+            ErrorClass::Contract,
+            ErrorPhase::Validate,
+            false,
+            "X-CTD-Hookpoint=v3 is only defined for responses operations",
+        ));
+    }
+
     // 6. session snapshot
     let session = if operation.requires_session() {
         let session_id = required(headers, SESSION_ID_HEADER, &mut err);
@@ -418,6 +494,7 @@ pub fn parse_request_context(
             .map(String::from),
         user_id: header_str(headers, USER_ID_HEADER).map(String::from),
         carried_headers: parse_carried_headers(header_str(headers, CARRIED_HEADERS_HEADER))?,
+        hookpoint,
         traceparent: header_str(headers, "traceparent")
             .filter(|v| !v.is_empty())
             .map(ToString::to_string),
@@ -592,6 +669,82 @@ mod tests {
         headers.insert(PROXY_KIND_HEADER, HeaderValue::from_static("gopher"));
         let err = parse_request_context(&headers, Operation::Responses).expect_err("must fail");
         assert_eq!(err.code, "invalid_proxy_kind");
+    }
+
+    #[test]
+    fn absent_hookpoint_defaults_to_v1() {
+        // 向后兼容：旧 Go 不传头 ⇒ v1（行为与今天逐字一致）。
+        let ctx = parse_request_context(&base_headers(), Operation::Responses).expect("parse");
+        assert_eq!(ctx.hookpoint, Hookpoint::V1);
+    }
+
+    #[test]
+    fn explicit_v1_is_equivalent_to_absent() {
+        // ★ 默认配置（Go 发 v1）与旧 Go（不传头）必须解析出完全相同的上下文：
+        // 除 hookpoint 字段本身外逐字段相等 ⇒ v1 与"今天"走同一条实现路径。
+        let absent = parse_request_context(&base_headers(), Operation::Responses).expect("parse");
+        let mut headers = base_headers();
+        headers.insert(HOOKPOINT_HEADER, HeaderValue::from_static("v1"));
+        let explicit = parse_request_context(&headers, Operation::Responses).expect("parse");
+
+        assert_eq!(absent.hookpoint, Hookpoint::V1);
+        assert_eq!(explicit.hookpoint, Hookpoint::V1);
+        assert_eq!(explicit.operation, absent.operation);
+        assert_eq!(explicit.request_id, absent.request_id);
+        assert_eq!(explicit.account_key, absent.account_key);
+        assert_eq!(explicit.credential_revision, absent.credential_revision);
+        assert_eq!(explicit.proxy_kind, absent.proxy_kind);
+        assert_eq!(explicit.purpose, absent.purpose);
+        assert_eq!(explicit.session, absent.session);
+        assert_eq!(explicit.carried_headers, absent.carried_headers);
+        assert_eq!(explicit.deadline.is_some(), absent.deadline.is_some());
+        assert_eq!(explicit.admission_timeout_ms, absent.admission_timeout_ms);
+    }
+
+    #[test]
+    fn hookpoint_closed_set_parses() {
+        for (raw, want) in [("v1", Hookpoint::V1), ("v3", Hookpoint::V3)] {
+            let mut headers = base_headers();
+            headers.insert(HOOKPOINT_HEADER, HeaderValue::from_str(raw).expect("value"));
+            let ctx = parse_request_context(&headers, Operation::Responses).expect("parse");
+            assert_eq!(ctx.hookpoint, want);
+            assert_eq!(ctx.hookpoint.as_str(), raw);
+        }
+        // compact 同属 responses 族。
+        let mut headers = base_headers();
+        headers.insert(HOOKPOINT_HEADER, HeaderValue::from_static("v3"));
+        let ctx = parse_request_context(&headers, Operation::ResponsesCompact).expect("parse");
+        assert_eq!(ctx.hookpoint, Hookpoint::V3);
+    }
+
+    #[test]
+    fn rejects_unknown_hookpoint() {
+        let mut headers = base_headers();
+        headers.insert(HOOKPOINT_HEADER, HeaderValue::from_static("v2"));
+        let err = parse_request_context(&headers, Operation::Responses).expect_err("must fail");
+        assert_eq!(err.code, "invalid_hookpoint");
+        assert_eq!(err.class, ErrorClass::Contract);
+        assert_eq!(err.phase, ErrorPhase::Validate);
+    }
+
+    #[test]
+    fn rejects_out_of_scope_hookpoint() {
+        // v3 只对 responses 族有定义；越界传入 fail closed。
+        let mut headers = base_headers();
+        headers.remove(SESSION_ID_HEADER);
+        headers.remove(THREAD_ID_HEADER);
+        headers.remove(WINDOW_ID_HEADER);
+        headers.insert(HOOKPOINT_HEADER, HeaderValue::from_static("v3"));
+        let err = parse_request_context(&headers, Operation::Models).expect_err("must fail");
+        assert_eq!(err.code, "invalid_hookpoint_scope");
+        // 同一 operation 传 v1 合法（v1 是默认实现，处处成立）。
+        let mut headers = base_headers();
+        headers.remove(SESSION_ID_HEADER);
+        headers.remove(THREAD_ID_HEADER);
+        headers.remove(WINDOW_ID_HEADER);
+        headers.insert(HOOKPOINT_HEADER, HeaderValue::from_static("v1"));
+        let ctx = parse_request_context(&headers, Operation::Models).expect("parse");
+        assert_eq!(ctx.hookpoint, Hookpoint::V1);
     }
 
     #[test]

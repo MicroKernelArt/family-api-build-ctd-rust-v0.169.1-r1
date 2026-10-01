@@ -291,6 +291,7 @@ pub(crate) async fn execute_operation(
                 operation: ctx.operation,
                 proxy_kind: ctx.proxy_kind,
                 purpose: ctx.purpose,
+                hookpoint: ctx.hookpoint,
             };
             Ok(guarded_response(
                 response,
@@ -350,6 +351,13 @@ async fn execute_operation_inner(
     ctx: &RequestContext,
     body: Bytes,
 ) -> Result<Response, LocalError> {
+    // 开关接线（步骤 5）：入口打一条低基数日志，标注本次请求实际生效的
+    // hookpoint。v3 与 v1 走同一条实现路径，差异只在这条标记上。
+    tracing::info!(
+        operation = ctx.operation.metric_label(),
+        hookpoint = ctx.hookpoint.as_str(),
+        "executing operation"
+    );
     // P1 平面（T-012/014/015）：契约已定义，独立 release gate 通过前
     // 不执行（INV-015 capability 未宣告）。
     let capability_not_released = || {
@@ -717,6 +725,7 @@ mod guarded_body_tests {
                 operation: Operation::Responses,
                 proxy_kind: crate::contract::headers::ProxyKind::Direct,
                 purpose: crate::contract::headers::RequestPurpose::Request,
+                hookpoint: crate::contract::headers::Hookpoint::V1,
             },
             finished: false,
         };
@@ -748,6 +757,7 @@ mod guarded_body_tests {
                 operation: Operation::Responses,
                 proxy_kind: crate::contract::headers::ProxyKind::Direct,
                 purpose: crate::contract::headers::RequestPurpose::Request,
+                hookpoint: crate::contract::headers::Hookpoint::V1,
             },
             finished: false,
         };

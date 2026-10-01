@@ -6,6 +6,7 @@ pub mod operation;
 pub mod operations_snapshot;
 
 pub use error::LocalError;
+pub use headers::Hookpoint;
 pub use headers::ProxyKind;
 pub use headers::RequestContext;
 pub use headers::RequestPurpose;

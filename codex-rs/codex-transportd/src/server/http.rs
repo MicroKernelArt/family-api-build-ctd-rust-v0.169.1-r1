@@ -76,6 +76,7 @@ pub(crate) async fn handle_http_operation(
             operation,
             proxy_kind: ctx.proxy_kind,
             purpose: ctx.purpose,
+            hookpoint: ctx.hookpoint,
         },
     );
 
@@ -83,6 +84,7 @@ pub(crate) async fn handle_http_operation(
         operation,
         proxy_kind: ctx.proxy_kind,
         purpose: ctx.purpose,
+        hookpoint: ctx.hookpoint,
     };
     let result = execute_operation(&state, &ctx, body).await;
     match result {
@@ -104,6 +106,7 @@ pub(crate) async fn handle_http_operation(
                     operation,
                     proxy_kind: ctx.proxy_kind,
                     purpose: ctx.purpose,
+                    hookpoint: ctx.hookpoint,
                 },
                 crate::observability::Outcome::LocalError,
             );
