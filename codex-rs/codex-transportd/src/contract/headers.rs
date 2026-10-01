@@ -125,8 +125,9 @@ pub const OUTBOUND_HEADERS_HEADER: &str = "x-ctd-outbound-headers";
 ///
 /// 有意不纳入：`openai-beta`（官方 HTTP POST 不发；R-Go 的 HTTP 传输策略
 /// 同样剥离，见 `applyCodexTransportHeaders` 的 `CodexTransportHTTP` 分支）、
-/// `x-codex-installation-id`（官方不作为 header 发，v3 下账号隔离由 body
-/// 原样透传保证）。
+/// `x-codex-installation-id`（官方 `/responses` 不作为 header 发，v3 下账号
+/// 隔离由 body 原样透传保证）——**后者在 compact 下是例外**，见
+/// [`V3_COMPACT_EXTRA_HEADER_NAMES`]。
 pub const V3_HEADER_ALLOWLIST: &[&str] = &[
     "version",
     "x-codex-beta-features",
@@ -143,6 +144,32 @@ pub const V3_HEADER_ALLOWLIST: &[&str] = &[
     "originator",
     "user-agent",
 ];
+
+/// **compact 专属**的 v3 出站头（operation 收窄的追加白名单，小写）。
+///
+/// 与 [`V3_HEADER_ALLOWLIST`] 的关系：白名单是**并集**的两半——responses 恒取
+/// 前者，compact 取「前者 ∪ 本表」。之所以不合并进 `V3_HEADER_ALLOWLIST`：
+///
+/// - 该表与 Go 侧 `codexV3HeaderNames` 逐字相等、由漂移测试钉死，且是官方
+///   `/responses` 18 头（docs/21 §3.1 实测）的过滤依据——把 compact 专属头
+///   并进去，会让 `/responses` **多出**一个官方没有的头（回归）；
+/// - 头存在性在官方两侧并不同源：官方 `/responses` 不发
+///   `x-codex-installation-id`（账号隔离由 `body.client_metadata` 原样透传），
+///   而 compact route 的官方 client 发它。
+///
+/// 唯一的成员 `x-codex-installation-id`：官方**最后一个**使用该 route 的
+/// client（`rust-v0.153.4` 的 `CompactClient`）在 extra-headers 段**首位**插入
+/// 它，官方测试亦断言存在（`core/tests/suite/compact_remote.rs`：
+/// `compact_request.header("x-codex-installation-id")`）⇒ 它在 v3 compact 下
+/// 由 Go 交付、ctd 放行并落在 `version` 之后。
+///
+/// ★ 位次依据（**不是官方实测序**）：官方 0.159.2 **不存在**
+/// `/responses/compact` 请求（pristine `codex-api` 无 compact client，
+/// `official-1592/flows-*.jsonl` 无该 route 的请求行，docs/23 §3.2 U2），
+/// compact 头序无官方样本 [未覆盖]。本表的位次沿用 **v1 侧的既有判定**
+/// （`transport/compact.rs::compact_outbound_headers` 的同一结论：
+/// installation 头紧跟 provider 的 `version`、先于元数据段）。
+pub const V3_COMPACT_EXTRA_HEADER_NAMES: &[&str] = &["x-codex-installation-id"];
 
 /// v3 必需头：v3 下 ctd 不做任何 header 决策（不补 `content-type`、不写
 /// `accept`），缺失即上游 4xx ⇒ 必须在任何 upstream I/O 之前 fail closed
@@ -566,11 +593,16 @@ pub fn parse_request_context(
             .filter(|v| !v.is_empty())
             .map(String::from),
         user_id: header_str(headers, USER_ID_HEADER).map(String::from),
-        carried_headers: parse_carried_headers(header_str(headers, CARRIED_HEADERS_HEADER))?,
+        carried_headers: parse_carried_headers(
+            header_str(headers, CARRIED_HEADERS_HEADER),
+            operation,
+        )?,
         // ★ v3 通道只在 hookpoint==v3 时解析：v1 请求（含错误携带该头者）
         // 的解析结果必须与"没有 v3 实现之前"逐字相同。
+        // ★ 白名单按 operation 收窄：compact 专属头（[`V3_COMPACT_EXTRA_HEADER_NAMES`]）
+        // 只在 `responses_compact` 下放行，`/responses` 下仍被静默丢弃。
         outbound_headers: if hookpoint == Hookpoint::V3 {
-            parse_outbound_headers(header_str(headers, OUTBOUND_HEADERS_HEADER))?
+            parse_outbound_headers(header_str(headers, OUTBOUND_HEADERS_HEADER), operation)?
         } else {
             BTreeMap::new()
         },
@@ -588,6 +620,13 @@ struct HeaderCarrierSpec {
     /// 错误正文里的展示名（诊断用，与 header 名逐字一致的大写形态）。
     label: &'static str,
     allowlist: &'static [&'static str],
+    /// operation 收窄的**追加**白名单：只有列出的 operation 才放行这些头名。
+    /// 空表 = 无例外（v1 承载通道恒为空）。
+    ///
+    /// 存在的原因见 [`V3_COMPACT_EXTRA_HEADER_NAMES`]：v3 的头存在性按
+    /// operation 分叉（`x-codex-installation-id` 只在 compact 出现），
+    /// 用"单表白名单 + operation 例外"表达，避免第二张 15 项的白名单表。
+    operation_extras: &'static [(Operation, &'static [&'static str])],
     invalid_code: &'static str,
     credential_code: &'static str,
 }
@@ -596,6 +635,7 @@ struct HeaderCarrierSpec {
 const CARRIED_CARRIER: HeaderCarrierSpec = HeaderCarrierSpec {
     label: "X-CTD-Carried-Headers",
     allowlist: CARRIED_HEADER_NAMES,
+    operation_extras: &[],
     invalid_code: "invalid_carried_headers",
     credential_code: "carried_headers_credential_rejected",
 };
@@ -604,6 +644,7 @@ const CARRIED_CARRIER: HeaderCarrierSpec = HeaderCarrierSpec {
 const OUTBOUND_CARRIER: HeaderCarrierSpec = HeaderCarrierSpec {
     label: "X-CTD-Outbound-Headers",
     allowlist: V3_HEADER_ALLOWLIST,
+    operation_extras: &[(Operation::ResponsesCompact, V3_COMPACT_EXTRA_HEADER_NAMES)],
     invalid_code: "invalid_outbound_headers",
     credential_code: "outbound_headers_credential_rejected",
 };
@@ -619,19 +660,27 @@ const OUTBOUND_CARRIER: HeaderCarrierSpec = HeaderCarrierSpec {
 ///   contract error（在任何 upstream I/O 之前）；
 /// - 凭据键（[`CARRIED_HEADER_DENYLIST`]）→ typed contract error；
 /// - 白名单外的键 → 丢弃（结构上不可能进入上游投影）。
-fn parse_carried_headers(raw: Option<&str>) -> Result<BTreeMap<String, String>, LocalError> {
-    parse_header_carrier(&CARRIED_CARRIER, raw)
+fn parse_carried_headers(
+    raw: Option<&str>,
+    operation: Operation,
+) -> Result<BTreeMap<String, String>, LocalError> {
+    parse_header_carrier(&CARRIED_CARRIER, raw, operation)
 }
 
 /// 解析并校验 v3 完整出站头承载（[`OUTBOUND_HEADERS_HEADER`]）。
-/// 与 [`parse_carried_headers`] 同一实现，只换白名单表与错误码。
-fn parse_outbound_headers(raw: Option<&str>) -> Result<BTreeMap<String, String>, LocalError> {
-    parse_header_carrier(&OUTBOUND_CARRIER, raw)
+/// 与 [`parse_carried_headers`] 同一实现，只换白名单表（+ compact 专属例外）
+/// 与错误码。
+fn parse_outbound_headers(
+    raw: Option<&str>,
+    operation: Operation,
+) -> Result<BTreeMap<String, String>, LocalError> {
+    parse_header_carrier(&OUTBOUND_CARRIER, raw, operation)
 }
 
 fn parse_header_carrier(
     spec: &HeaderCarrierSpec,
     raw: Option<&str>,
+    operation: Operation,
 ) -> Result<BTreeMap<String, String>, LocalError> {
     let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(BTreeMap::new());
@@ -658,7 +707,14 @@ fn parse_header_carrier(
                 format!("承载头禁止携带凭据头 {name}"),
             ));
         }
-        if !spec.allowlist.contains(&name.as_str()) || value.is_empty() {
+        // ★ operation 收窄：白名单命中，或该头是**本 operation** 的例外
+        // （`/responses` 下 compact 专属头仍然被静默丢弃）。
+        let allowed = spec.allowlist.contains(&name.as_str())
+            || spec
+                .operation_extras
+                .iter()
+                .any(|(scoped, names)| *scoped == operation && names.contains(&name.as_str()));
+        if !allowed || value.is_empty() {
             continue;
         }
         if http::header::HeaderName::from_bytes(name.as_bytes()).is_err()
@@ -696,7 +752,8 @@ impl RequestContext {
         headers
     }
 
-    /// v3 完整出站头 → 上游投影 `HeaderMap`（仅 [`V3_HEADER_ALLOWLIST`]，
+    /// v3 完整出站头 → 上游投影 `HeaderMap`（仅 [`V3_HEADER_ALLOWLIST`] ∪
+    /// 本 operation 的 [`V3_COMPACT_EXTRA_HEADER_NAMES`]，
     /// 值原样注入，**不补任何头**）。
     ///
     /// ★ v3 下 ctd 不做 header 决策：`content-type` / `accept` 由 Go 交付，
@@ -1133,6 +1190,14 @@ mod v3_outbound_header_tests {
     const OUTBOUND_JSON: &str = r#"{"version":"0.159.2","accept":"text/event-stream","content-type":"application/json","user-agent":"codex-tui/0.159.2 (Mac OS 15.5.0; arm64)","host":"chatgpt.com","content-length":"481","accept-encoding":"gzip","x-codex-installation-id":"inst-1"}"#;
 
     fn with_hookpoint(hookpoint: Option<&str>, outbound: &str) -> Result<RequestContext, LocalError> {
+        with_hookpoint_op(hookpoint, outbound, Operation::Responses)
+    }
+
+    fn with_hookpoint_op(
+        hookpoint: Option<&str>,
+        outbound: &str,
+        operation: Operation,
+    ) -> Result<RequestContext, LocalError> {
         let mut headers = base();
         if let Some(raw) = hookpoint {
             headers.insert(HOOKPOINT_HEADER, HeaderValue::from_str(raw).expect("value"));
@@ -1141,7 +1206,7 @@ mod v3_outbound_header_tests {
             OUTBOUND_HEADERS_HEADER,
             HeaderValue::from_str(outbound).expect("value"),
         );
-        parse_request_context(&headers, Operation::Responses)
+        parse_request_context(&headers, operation)
     }
 
     #[test]
@@ -1158,7 +1223,10 @@ mod v3_outbound_header_tests {
         ] {
             assert!(outbound.get(kept).is_some(), "{kept} 必须在 v3 出站集内");
         }
-        // ctd-owned 传输头与白名单外头在结构上不可能进入（R5）。
+        // ctd-owned 传输头与白名单外头在结构上不可能进入（R5）；
+        // `x-codex-installation-id` 是 **compact 专属**头，`/responses` 下与
+        // 白名单外键同语义（静默丢弃），见
+        // `compact_extra_header_is_scoped_to_compact_operation`。
         for dropped in ["host", "content-length", "accept-encoding", "x-codex-installation-id"] {
             assert!(
                 outbound.get(dropped).is_none(),
@@ -1167,6 +1235,55 @@ mod v3_outbound_header_tests {
         }
         // 值原样，不做归一化。
         assert_eq!(outbound.get("version").expect("version"), "0.159.2");
+    }
+
+    /// ★ operation 收窄（白名单）：`x-codex-installation-id` **只在 compact**
+    /// 被放行；同一份交付在 `/responses` 下与白名单外键同语义（静默丢弃）。
+    ///
+    /// 这是"`/responses` 不得多出该头"的第一道（也是生产路径上的唯一一道）
+    /// 防线——第二道在 `responses_v3::order_v3_outbound_headers` 的表外追加分支。
+    #[test]
+    fn compact_extra_header_is_scoped_to_compact_operation() {
+        let raw = r#"{"accept":"application/json","content-type":"application/json","x-codex-installation-id":"inst-1"}"#;
+
+        let compact =
+            with_hookpoint_op(Some("v3"), raw, Operation::ResponsesCompact).expect("parse");
+        assert_eq!(
+            compact
+                .outbound_headers
+                .get("x-codex-installation-id")
+                .map(String::as_str),
+            Some("inst-1")
+        );
+        // 白名单内两项 + compact 例外一项。
+        assert_eq!(compact.outbound_headers.len(), 3);
+
+        let responses = with_hookpoint_op(Some("v3"), raw, Operation::Responses).expect("parse");
+        assert!(
+            !responses
+                .outbound_headers
+                .contains_key("x-codex-installation-id")
+        );
+        assert_eq!(responses.outbound_headers.len(), 2);
+    }
+
+    /// compact 例外表与 responses 白名单表必须**不相交**：一旦把
+    /// `x-codex-installation-id` 并进 [`V3_HEADER_ALLOWLIST`]，`/responses`
+    /// 就会多出官方 18 头里没有的名字（且与 Go 侧 `codexV3HeaderNames` 的
+    /// 逐字相等约定失配）。
+    #[test]
+    fn compact_extras_stay_out_of_the_responses_allowlist() {
+        assert!(!V3_COMPACT_EXTRA_HEADER_NAMES.is_empty());
+        for name in V3_COMPACT_EXTRA_HEADER_NAMES {
+            assert!(
+                !V3_HEADER_ALLOWLIST.contains(name),
+                "{name} 不得并入 /responses 白名单"
+            );
+            assert!(
+                !CARRIED_HEADER_DENYLIST.contains(name),
+                "{name} 不得同时是凭据护栏"
+            );
+        }
     }
 
     #[test]

@@ -15,3 +15,7 @@ pub mod responses;
 pub mod responses_v3;
 pub mod url_policy;
 pub mod websocket;
+
+/// 出站线上的 mock 上游读取工具（仅测试构建；v1/v3 出站形态测试共用）。
+#[cfg(test)]
+pub(crate) mod wire_harness;

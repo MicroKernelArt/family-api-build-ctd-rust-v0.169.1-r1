@@ -6,7 +6,7 @@
 //!
 //! | | v1 | v3 |
 //! |---|---|---|
-//! | headers | Go 交付白名单**子集**，ctd 自派生其余 | Go 交付白名单**全集**，ctd 只做白名单过滤 |
+//! | headers | Go 交付白名单**子集**，ctd 自派生其余 | Go 交付白名单**全集**，ctd 只做白名单过滤（+ compact 专属头） |
 //! | header 次序 | ctd 按官方构造序投影 | **同一张表**（[`V3_HEADER_ORDER`]），同一切分点 |
 //! | body | ctd 解析 → 改投影 → `serde_json` 重编码 | Go 的**最终字节**，ctd 不解析不改写 |
 //! | `content-encoding` | ctd 权威，恒 `zstd`（官方形态） | **Go 权威**，ctd 只校验（含 body↔头一致性） |
@@ -63,6 +63,7 @@ use crate::contract::error::ErrorClass;
 use crate::contract::error::ErrorPhase;
 use crate::contract::error::LocalError;
 use crate::contract::headers::V3_AUDIT_HEADERS;
+use crate::contract::headers::V3_COMPACT_EXTRA_HEADER_NAMES;
 use crate::contract::headers::V3_CONTENT_ENCODINGS;
 use crate::contract::headers::V3_REQUIRED_HEADERS;
 use crate::contract::operation::Operation;
@@ -307,6 +308,12 @@ pub fn audit_v3_headers(headers: &HeaderMap) -> Result<(), LocalError> {
 /// [`V3_HEADER_ALLOWLIST`] 相对本表无余集，故恒为空）按确定性键序追加在自派生
 /// 段之后，只保证"不丢、不乱序"。
 ///
+/// ★ compact 例外（**operation 收窄**）：本表是 `/responses` 的序，**逐字不动**。
+/// compact 下多出的 `x-codex-installation-id`
+/// （[`crate::contract::headers::V3_COMPACT_EXTRA_HEADER_NAMES`]）由
+/// [`V3_COMPACT_EXTRA_HEADER_ANCHOR`] 指定位次插入，不写进本表——写进来就会让
+/// `/responses` 多出官方 18 头里没有的名字。
+///
 /// ★ 值：**逐字使用 Go 交付值**，v3 下 ctd 不做任何归一化（包括
 /// `originator` / `user-agent`——v1 会按 [`official_adapter::canonical_user_agent`]
 /// 重写，那是 v1 专用，v3 不适用）。
@@ -339,6 +346,16 @@ pub const V3_HEADER_ORDER: &[&str] = &[
 /// 立刻偏离官方（v1 的同一结论）。
 pub const V3_TRAILING_HEADER_ORDER: &[&str] = &["originator", "user-agent"];
 
+/// compact 专属头（[`crate::contract::headers::V3_COMPACT_EXTRA_HEADER_NAMES`]）
+/// 在官方 16 核心头序里的**锚点**：紧跟该头之后插入。
+///
+/// 位次依据（★ **不是官方实测序**）：官方 0.159.2 不存在
+/// `/responses/compact` 请求（docs/23 §3.2 U2，compact 头序无样本 [未覆盖]），
+/// 故沿用 **v1 侧的既有判定**——`transport/compact.rs::compact_outbound_headers`
+/// 把 installation 头插在 extra-headers 段首位（官方 `rust-v0.153.4` 的
+/// `CompactClient` 插入序），即 provider 的 `version` 之后、元数据段之前。
+const V3_COMPACT_EXTRA_HEADER_ANCHOR: &str = "version";
+
 /// v3 承载头 →（auth 段之前的头集, 官方尾段头集）。
 ///
 /// 插入序即官方构造序（`http::HeaderMap` 的迭代序 == 插入序，本函数只
@@ -346,43 +363,84 @@ pub const V3_TRAILING_HEADER_ORDER: &[&str] = &["originator", "user-agent"];
 /// [`super::responses::outbound_headers`] 的手法一致：**不得**改用
 /// `BTreeMap` / `HashMap` 迭代序，那是字母序。
 ///
+/// ★ operation 收窄：`/responses` 的插入序列 = [`V3_HEADER_ORDER`] 原样
+/// （`extras` 为空 ⇒ 循环体与改动前逐字等价）；`responses_compact` 额外在
+/// [`V3_COMPACT_EXTRA_HEADER_ANCHOR`] 之后插入
+/// [`crate::contract::headers::V3_COMPACT_EXTRA_HEADER_NAMES`]。
+///
 /// 解析期已完成名字/值的合法性校验（[`crate::contract::headers::parse_outbound_headers`]），
 /// 因此这里只做逐键搬运；非法项跳过而非 panic（与 `outbound_header_map` 同语义）。
 pub fn order_v3_outbound_headers(
+    operation: Operation,
     outbound: &BTreeMap<String, String>,
 ) -> (HeaderMap, HeaderMap) {
     let mut headers = HeaderMap::new();
     let mut trailing = HeaderMap::new();
 
+    let is_compact = operation == Operation::ResponsesCompact;
+    let extras: &'static [&'static str] = if is_compact {
+        V3_COMPACT_EXTRA_HEADER_NAMES
+    } else {
+        &[]
+    };
+
     for &name in V3_HEADER_ORDER {
-        let Some(value) = outbound.get(name) else {
-            continue;
-        };
-        let Ok(value) = HeaderValue::from_str(value) else {
-            continue;
-        };
-        let name = HeaderName::from_static(name);
-        if V3_TRAILING_HEADER_ORDER.contains(&name.as_str()) {
-            trailing.insert(name, value);
-        } else {
-            headers.insert(name, value);
+        if let Some(value) = outbound.get(name) {
+            insert_ordered(&mut headers, &mut trailing, name, value);
+        }
+        // 锚点头**之后**（无论锚点自身是否被交付）插 compact 专属头：锚点缺席
+        // 时它落在锚点的位次上，而不是被下面的"表外追加"分支甩到末尾。
+        if name == V3_COMPACT_EXTRA_HEADER_ANCHOR {
+            for &extra in extras {
+                if let Some(value) = outbound.get(extra) {
+                    insert_ordered(&mut headers, &mut trailing, extra, value);
+                }
+            }
         }
     }
 
-    // 表外名字（当前恒空）：确定性键序追加，不丢不乱序。
+    // 表外名字（当前恒空）：确定性键序追加，不丢不乱序。已被上面定序落位的
+    // 名字跳过（含 compact 专属头）——`HeaderMap::insert` 虽会保位，显式跳过
+    // 让这条分支只服务真正的表外名字。
     for (name, value) in outbound {
-        if V3_HEADER_ORDER.contains(&name.as_str()) {
-            continue;
-        }
         let (Ok(name), Ok(value)) = (
             HeaderName::from_bytes(name.as_bytes()),
             HeaderValue::from_str(value),
         ) else {
             continue;
         };
+        if headers.contains_key(&name) || trailing.contains_key(&name) {
+            continue;
+        }
+        // ★ 纵深防线：compact 专属头对**其它** operation 是"不存在的头"。
+        // 解析期白名单已丢弃（Go 误交付时），这里保证即使绕过解析期也
+        // 不会把它追加到 `/responses` 上——官方 `/responses` 的 18 头里没有它。
+        if !is_compact && V3_COMPACT_EXTRA_HEADER_NAMES.contains(&name.as_str()) {
+            continue;
+        }
         headers.insert(name, value);
     }
     (headers, trailing)
+}
+
+/// 单个交付头落位：官方尾段两头（[`V3_TRAILING_HEADER_ORDER`]）进 `trailing`
+/// （交回 auth 之后的注入点），其余进 `headers`；值非法则跳过（与
+/// `outbound_header_map` 同语义，绝不 panic）。
+fn insert_ordered(
+    headers: &mut HeaderMap,
+    trailing: &mut HeaderMap,
+    name: &'static str,
+    value: &str,
+) {
+    let Ok(value) = HeaderValue::from_str(value) else {
+        return;
+    };
+    let name = HeaderName::from_static(name);
+    if V3_TRAILING_HEADER_ORDER.contains(&name.as_str()) {
+        trailing.insert(name, value);
+    } else {
+        headers.insert(name, value);
+    }
 }
 
 /// v3 出站头集准备：官方序投影 → 必需头 → body 形态一致性 → 审计。
@@ -404,7 +462,10 @@ pub fn prepare_v3_headers(
     ctx: &RequestContext,
     body: &[u8],
 ) -> Result<(HeaderMap, HeaderMap), LocalError> {
-    let (headers, trailing) = order_v3_outbound_headers(&ctx.outbound_headers);
+    // ★ operation 来自 ctx（`/responses` vs `responses_compact`）：两者的
+    // 白名单（解析期）与头序（投影期）都按它分叉，见
+    // [`order_v3_outbound_headers`]。
+    let (headers, trailing) = order_v3_outbound_headers(ctx.operation, &ctx.outbound_headers);
     check_v3_required_headers(&headers)?;
     let encoding = resolve_v3_body_encoding(&headers)?;
     check_v3_body_encoding(encoding, body)?;
@@ -543,6 +604,12 @@ pub async fn execute_compact_v3_raw(
 mod tests {
     use super::*;
     use crate::contract::headers::V3_HEADER_ALLOWLIST;
+    use crate::redaction::SecretString;
+    use crate::transport::wire_harness::head_header_names;
+    use crate::transport::wire_harness::header_value;
+    use crate::transport::wire_harness::read_request;
+    use std::io::Write;
+    use std::time::Duration;
 
     fn v3_headers(pairs: &[(&str, &str)]) -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -807,7 +874,8 @@ mod tests {
     /// 定序权威在 ctd：投影必须逐位等于官方构造序，**不得**是字母序。
     #[test]
     fn official_outbound_header_order_is_reproduced() {
-        let (leading, trailing) = order_v3_outbound_headers(&full_outbound_headers());
+        let (leading, trailing) =
+            order_v3_outbound_headers(Operation::Responses, &full_outbound_headers());
         assert_eq!(
             names(&leading),
             &[
@@ -833,7 +901,8 @@ mod tests {
     /// 第 1–16 位。这条断言把"切分点只有 ctd 知道"这一理由固化成可执行形式。
     #[test]
     fn auth_splices_between_leading_and_trailing() {
-        let (mut leading, trailing) = order_v3_outbound_headers(&full_outbound_headers());
+        let (mut leading, trailing) =
+            order_v3_outbound_headers(Operation::Responses, &full_outbound_headers());
         leading.insert(
             HeaderName::from_static("authorization"),
             HeaderValue::from_static("Bearer test"),
@@ -857,7 +926,7 @@ mod tests {
         delivered.remove("content-encoding");
         delivered.remove("x-codex-routing-hint");
         delivered.remove("version");
-        let (leading, _) = order_v3_outbound_headers(&delivered);
+        let (leading, _) = order_v3_outbound_headers(Operation::Responses, &delivered);
         assert_eq!(
             names(&leading),
             &[
@@ -898,12 +967,146 @@ mod tests {
     fn out_of_template_names_are_appended_deterministically() {
         let mut delivered = full_outbound_headers();
         delivered.insert("openai-beta".to_string(), "responses=experimental".to_string());
-        let (leading, _) = order_v3_outbound_headers(&delivered);
+        let (leading, _) = order_v3_outbound_headers(Operation::Responses, &delivered);
         assert_eq!(
             leading.get("openai-beta").map(|value| value.to_str().unwrap()),
             Some("responses=experimental")
         );
         assert_eq!(names(&leading).last(), Some(&"openai-beta"));
+    }
+
+    /// ★ compact 专属头（`x-codex-installation-id`）：compact 下出现，且位次
+    /// = 紧跟 `version`（v1 既有判定：官方 legacy compact 把它插在
+    /// extra-headers 段首位），先于元数据段。
+    ///
+    /// ★ 位次依据是 **v1 的既有判定**，不是官方实测序——官方 0.159.2 没有
+    /// `/responses/compact` 请求样本（docs/23 §3.2 U2）。
+    #[test]
+    fn compact_extra_header_is_placed_after_version() {
+        let mut delivered = full_outbound_headers();
+        delivered.insert(
+            "x-codex-installation-id".to_string(),
+            "installation-1".to_string(),
+        );
+        let (leading, trailing) =
+            order_v3_outbound_headers(Operation::ResponsesCompact, &delivered);
+        assert_eq!(
+            names(&leading),
+            &[
+                "version",
+                "x-codex-installation-id",
+                "x-codex-beta-features",
+                "x-codex-window-id",
+                "x-codex-turn-metadata",
+                "x-openai-internal-codex-responses-lite",
+                "x-codex-routing-hint",
+                "x-client-request-id",
+                "session-id",
+                "thread-id",
+                "accept",
+                "content-encoding",
+                "content-type",
+            ]
+        );
+        assert_eq!(
+            leading
+                .get("x-codex-installation-id")
+                .map(|value| value.to_str().unwrap()),
+            Some("installation-1")
+        );
+        assert_eq!(names(&trailing), &["originator", "user-agent"]);
+    }
+
+    /// ★ 回归守护：`/responses` 的头集与头序**逐字不变**——同一份交付里即使
+    /// 出现 compact 专属头，`/responses` 也不得放行它（官方 18 头无此名）。
+    ///
+    /// 差分断言（有/无该头两条路径必须产出同一序）比"某头不存在"更强：它同时
+    /// 排除了"多交付一个头会挤动其它头位次"。
+    #[test]
+    fn responses_never_carries_the_compact_extra_header() {
+        let baseline_delivered = full_outbound_headers();
+        let mut with_extra = baseline_delivered.clone();
+        with_extra.insert(
+            "x-codex-installation-id".to_string(),
+            "installation-1".to_string(),
+        );
+
+        let (baseline, baseline_trailing) =
+            order_v3_outbound_headers(Operation::Responses, &baseline_delivered);
+        let (leading, trailing) = order_v3_outbound_headers(Operation::Responses, &with_extra);
+
+        assert!(!leading.contains_key("x-codex-installation-id"));
+        assert_eq!(
+            names(&leading),
+            names(&baseline),
+            "compact 专属头不得出现在 /responses 出站集"
+        );
+        assert_eq!(names(&trailing), names(&baseline_trailing));
+    }
+
+    /// compact 例外头**不写进** `/responses` 的序模板：写进来就会让
+    /// `/responses` 多出官方 18 头里没有的名字。
+    #[test]
+    fn compact_extras_stay_out_of_the_responses_order_table() {
+        // 锚点必须真的在 `/responses` 的序模板里：否则 compact 专属头会落进
+        // "表外追加"分支被甩到末尾（位次静默失效）。
+        assert!(
+            V3_HEADER_ORDER.contains(&V3_COMPACT_EXTRA_HEADER_ANCHOR),
+            "锚点 {} 必须在 V3_HEADER_ORDER 内",
+            V3_COMPACT_EXTRA_HEADER_ANCHOR
+        );
+        for name in V3_COMPACT_EXTRA_HEADER_NAMES {
+            assert!(
+                !V3_HEADER_ORDER.contains(name),
+                "{name} 不得进入 V3_HEADER_ORDER（/responses 的官方序）"
+            );
+        }
+    }
+
+    /// compact 下 `version` 缺席时，专属头仍落在该位次——而不是被"表外追加"
+    /// 分支甩到末尾。
+    #[test]
+    fn compact_extra_header_keeps_position_without_anchor() {
+        let mut delivered = full_outbound_headers();
+        delivered.remove("version");
+        delivered.insert(
+            "x-codex-installation-id".to_string(),
+            "installation-1".to_string(),
+        );
+        let (leading, _) = order_v3_outbound_headers(Operation::ResponsesCompact, &delivered);
+        assert_eq!(names(&leading).first(), Some(&"x-codex-installation-id"));
+    }
+
+    /// `prepare_v3_headers` 的端到端形态（compact）：专属头放行且落位；同一份
+    /// 交付在 `/responses` 下不出现（operation 由 `ctx.operation` 决定）。
+    #[test]
+    fn prepare_v3_headers_places_compact_extra_header_only_for_compact() {
+        let mut delivered = full_outbound_headers();
+        delivered.remove("content-encoding"); // identity body
+        delivered.insert(
+            "x-codex-installation-id".to_string(),
+            "installation-1".to_string(),
+        );
+
+        let compact = RequestContext {
+            operation: Operation::ResponsesCompact,
+            ..v3_ctx(delivered.clone())
+        };
+        let (leading, trailing) =
+            prepare_v3_headers(&compact, br#"{"model":"gpt-5"}"#).expect("compact 通过");
+        assert_eq!(names(&leading)[1], "x-codex-installation-id");
+        assert_eq!(
+            leading
+                .get("x-codex-installation-id")
+                .map(|value| value.to_str().unwrap()),
+            Some("installation-1")
+        );
+        assert_eq!(names(&trailing), &["originator", "user-agent"]);
+
+        let responses = v3_ctx(delivered);
+        let (leading, _) =
+            prepare_v3_headers(&responses, br#"{"model":"gpt-5"}"#).expect("responses 通过");
+        assert!(!leading.contains_key("x-codex-installation-id"));
     }
 
     /// `prepare_v3_headers` 的端到端形态：identity body 通过，且尾段两头被
@@ -933,5 +1136,138 @@ mod tests {
         );
         assert_eq!(names(&leading).len(), 12);
         assert_eq!(names(&trailing), &["originator", "user-agent"]);
+    }
+
+    // -----------------------------------------------------------------------
+    // 线上形态（真实 reqwest 传输 + 本地 mock 上游）
+    // -----------------------------------------------------------------------
+
+    /// ★ 验收项（v3 compact）：Go 交付的 `x-codex-installation-id` 必须**真的
+    /// 出现在线上**，且位次 = `version` 之后、元数据段之前；其余头仍为官方
+    /// 构造序（auth 段与尾段由 ctd 的注入点把守）。
+    ///
+    /// 走真实链路：[`prepare_v3_headers`]（ctd 头装配）→
+    /// `codex_api::ResponsesClient::execute_raw_passthrough`（`/responses/compact`
+    /// unary 原样透传）→ 官方 auth 注入 → 真实 `ReqwestTransport` → 本地 mock
+    /// 记录原始字节。单元测试只能证明投影层的 `HeaderMap` 序；这条断言覆盖
+    /// "投影序 → wire 序"的那一段（provider 为空头、auth 拼接点）。
+    ///
+    /// ★ 位次依据是 **v1 的既有判定**（官方 0.159.2 无 `/responses/compact`
+    /// 请求样本，docs/23 §3.2 U2），不是官方实测序。
+    #[tokio::test]
+    async fn compact_wire_carries_installation_header_after_version() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+        let addr = listener.local_addr().expect("addr");
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let sink = std::sync::Arc::clone(&captured);
+        let mock = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().expect("accept");
+            let (head, body) = read_request(&mut sock);
+            *sink.lock().expect("lock") = Some((head, body));
+            let payload = b"{\"output\":[]}";
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                payload.len()
+            );
+            sock.write_all(resp.as_bytes()).expect("write head");
+            sock.write_all(payload).expect("write body");
+            let _ = sock.flush();
+            let _ = sock.shutdown(std::net::Shutdown::Both);
+        });
+
+        // Go 交付：identity body（unary JSON 明文）+ compact 专属 installation 头。
+        let mut delivered = full_outbound_headers();
+        delivered.remove("content-encoding");
+        delivered.insert("accept".to_string(), "application/json".to_string());
+        delivered.insert(
+            "x-codex-installation-id".to_string(),
+            "installation-1".to_string(),
+        );
+        let ctx = RequestContext {
+            request_id: "req-v3-compact-wire".to_string(),
+            account_key: "acct".to_string(),
+            credential_revision: "rev-1".to_string(),
+            access_token: SecretString::new("test-token"),
+            chatgpt_account_id: Some(SecretString::new("acct-id")),
+            operation: Operation::ResponsesCompact,
+            proxy_kind: crate::contract::ProxyKind::Direct,
+            ..v3_ctx(delivered)
+        };
+
+        let plaintext = serde_json::json!({
+            "model": "gpt-5.6-sol",
+            "input": [{"role": "user", "content": "compact-marker"}],
+            "stream": false,
+        });
+        let body = Bytes::from(serde_json::to_vec(&plaintext).expect("encode"));
+        let (headers, trailing) = prepare_v3_headers(&ctx, &body).expect("v3 compact 装配通过");
+
+        // 与生产同形：v3 provider **无任何默认头**（头集完全由 Go 交付）。
+        let provider = codex_api::Provider {
+            name: "chatgpt".to_string(),
+            base_url: format!("http://{addr}"),
+            query_params: None,
+            headers: HeaderMap::new(),
+            retry: codex_api::RetryConfig {
+                // 单次尝试：mock 只接受一个连接，重试会让断言变成噪声。
+                max_attempts: 0,
+                base_delay: Duration::from_millis(0),
+                retry_429: false,
+                retry_5xx: false,
+                retry_transport: false,
+            },
+            stream_idle_timeout: Duration::from_secs(300),
+        };
+        let auth = official_adapter::official_auth_with_trailing_headers(&ctx, trailing);
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .expect("reqwest client");
+        let api_client = codex_api::ResponsesClient::new(
+            official_adapter::transport_for(client),
+            provider,
+            auth,
+        );
+
+        let outcome = api_client
+            .execute_raw_passthrough(body, headers, Duration::from_secs(30))
+            .await
+            .expect("v3 compact 请求必须到达 mock 上游");
+        assert_eq!(outcome.value.status.as_u16(), 200);
+        mock.join().expect("mock thread");
+        let (head, _body) = captured
+            .lock()
+            .expect("lock")
+            .take()
+            .expect("mock captured the request");
+
+        let names = head_header_names(&head);
+        assert!(
+            names.starts_with(&[
+                "version".to_string(),
+                "x-codex-installation-id".to_string(),
+                "x-codex-beta-features".to_string(),
+                "x-codex-window-id".to_string(),
+                "x-codex-turn-metadata".to_string(),
+                "x-openai-internal-codex-responses-lite".to_string(),
+                "x-codex-routing-hint".to_string(),
+                "x-client-request-id".to_string(),
+                "session-id".to_string(),
+                "thread-id".to_string(),
+                "accept".to_string(),
+                "content-type".to_string(),
+                "authorization".to_string(),
+                "chatgpt-account-id".to_string(),
+                "originator".to_string(),
+                "user-agent".to_string(),
+            ]),
+            "v3 compact 出站头序必须为「version → installation → 官方元数据序 → \
+             accept → content-type → auth → originator → user-agent」\n{names:?}"
+        );
+        assert_eq!(
+            header_value(&head, "x-codex-installation-id"),
+            Some("installation-1")
+        );
+        assert_eq!(header_value(&head, "accept"), Some("application/json"));
     }
 }
