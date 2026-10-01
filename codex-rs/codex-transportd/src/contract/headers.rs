@@ -65,12 +65,15 @@ pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
 /// 有意不纳入：
 /// - `version`：跨语言契约显式禁止携带，且由官方 provider 的 version header
 ///   （`CARGO_PKG_VERSION`）产出，承载它会让 sidecar 谎报自身构建版本；
-/// - `x-client-request-id`：R-Go 直连路径主动剥离（Go 侧
-///   `codexReservedHeaderNames`），两侧出站一致为空，属"有意共同不发"；
 /// - `x-codex-installation-id`：installation 身份由 sidecar 从 account_key
 ///   确定性派生；
 /// - `x-codex-parent-thread-id` / `x-openai-subagent`：subagent 作用域，
 ///   不在 R-Go 对拍范围。
+///
+/// `x-client-request-id` 纳入：官方不变式是「x-client-request-id == session-id」，
+/// Go 侧的 md 投影（applyCodexSessionMetadataProjection）据此把它派生为
+/// md.SessionID，R-Go 直连会真的把它发出去；若承载通道不含它，R-CTD 就会少一个
+/// R-Go 有的头，两侧对拍立刻出现差异。
 ///
 /// `user-agent` / `originator` 纳入：R-Go 侧是网关归一化值，R-CTD 侧由官方
 /// generator 在 sidecar 自身构建环境求值（os_info/arch/terminal、
@@ -83,6 +86,7 @@ pub const CARRIED_HEADER_NAMES: &[&str] = &[
     "x-codex-beta-features",
     "x-codex-routing-hint",
     "x-openai-internal-codex-responses-lite",
+    "x-client-request-id",
     "openai-beta",
     "user-agent",
     "originator",
@@ -769,12 +773,13 @@ mod carried_header_tests {
 
     #[test]
     fn non_whitelisted_headers_are_dropped() {
-        // x-codex-installation-id / version / x-client-request-id 都不在白名单：
-        // 前者由 sidecar 从 account_key 派生，后两者是"有意两侧都不发"或官方
-        // provider 自有，承载它们会造出 R-Go 没有的头。
-        let raw = r#"{"x-codex-installation-id":"inst-1","version":"0.159.0","x-client-request-id":"req-abc","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
+        // x-codex-installation-id / version 不在白名单：前者由 sidecar 从 account_key
+        // 派生，后者是官方 provider 自有，承载它们会造出 R-Go 没有的头。
+        // x-client-request-id 相反——它在白名单里（官方不变式 == session-id，
+        // R-Go 会发），必须被保留。
+        let raw = r#"{"x-codex-installation-id":"inst-1","version":"0.159.0","x-client-request-id":"0198f2b0-0000-7000-8000-000000000001","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
         let ctx = with_carried(raw).expect("parse");
-        assert_eq!(ctx.carried_headers.len(), 1);
+        assert_eq!(ctx.carried_headers.len(), 2);
         assert_eq!(
             ctx.carried_headers.get("x-codex-window-id").map(String::as_str),
             Some("0198f2b0-0000-7000-8000-000000000002:1")
@@ -782,7 +787,10 @@ mod carried_header_tests {
         let outbound = ctx.carried_header_map();
         assert!(outbound.get("x-codex-installation-id").is_none());
         assert!(outbound.get("version").is_none());
-        assert!(outbound.get("x-client-request-id").is_none());
+        assert_eq!(
+            outbound.get("x-client-request-id").expect("carried"),
+            "0198f2b0-0000-7000-8000-000000000001"
+        );
     }
 
     #[test]
