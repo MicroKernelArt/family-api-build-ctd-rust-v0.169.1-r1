@@ -305,6 +305,40 @@ pub fn inject_derived_client_metadata(
     );
 }
 
+/// 不变式 I8（`baseline/official-1592.json:invariants` / `docs/24 §4.2 b`）：
+/// `body.prompt_cache_key` 必须等于**出站** `session-id`。
+///
+/// 官方依据：0.159.2 的根会话用**同一个值**做 `session-id` 头与
+/// `prompt_cache_key`（`core/src/client.rs` 的 `responses_session_id()` 在
+/// 非 subagent 时返回 `prompt_cache_key()`；基准表 `invariants.I8` = PASS）。
+///
+/// v1 的 body 由 ctd 组装，客户端原始 `prompt_cache_key` 是**客户端自己的**
+/// 会话标识（真实 codex CLI 的 session id）⇒ 网关把会话身份换成出站
+/// `session-id` 后两者脱钩（`docs/24 §4.2 b` 登记的 v1 唯一【不可比】差异）。
+/// 本函数把它拉回出站身份。
+///
+/// 语义与 Go 侧同项修复逐条对齐（`openai_codex_transform.go`
+/// `normalizeCodexOAuthClientMetadataMap` 的 I8 分支）：
+/// - 只在客户端**确实带了**非空字符串 `prompt_cache_key` 时改写 ⇒ 不凭空造键；
+/// - 非字符串（客户端畸形输入）/ 空串 / 已等于出站值 ⇒ 原样保留；
+/// - 只改这一个键的值，不动任何其他键（含键序）。
+pub fn rewrite_prompt_cache_key(obj: &mut Map<String, Value>, outbound_session_id: &str) {
+    if outbound_session_id.trim().is_empty() {
+        return;
+    }
+    match obj.get("prompt_cache_key") {
+        Some(Value::String(existing))
+            if !existing.trim().is_empty() && existing != outbound_session_id =>
+        {
+            obj.insert(
+                "prompt_cache_key".to_string(),
+                Value::String(outbound_session_id.to_string()),
+            );
+        }
+        _ => {}
+    }
+}
+
 /// 构造官方 metadata 投影（UUIDv7 校验在入口完成）。
 pub fn build_projection(
     installation_id: &str,
@@ -519,6 +553,69 @@ mod tests {
         assert_eq!(chatgpt["guardian_credits_requested"], "true");
         let api_key = assembled_client_metadata(&Default::default(), /*chatgpt*/ false);
         assert!(api_key.get("guardian_credits_requested").is_none());
+    }
+
+    fn body_object(value: Value) -> Map<String, Value> {
+        value.as_object().cloned().expect("JSON object")
+    }
+
+    /// I8（正面）：客户端带了非空 `prompt_cache_key` ⇒ 改写成**出站** session-id，
+    /// 且其余键逐字不变。
+    #[test]
+    fn prompt_cache_key_follows_the_outbound_session_id() {
+        let outbound_session_id = "01a0f7e2-8d7e-73b1-a4f0-d903f408d712";
+        let mut obj = body_object(serde_json::json!({
+            "model": "gpt-5.6-sol",
+            "prompt_cache_key": "01a0f307-43d2-7a92-90b5-c0d6ec15eed3",
+            "stream": true,
+        }));
+        rewrite_prompt_cache_key(&mut obj, outbound_session_id);
+        // I8：body.prompt_cache_key == 出站 session-id。
+        assert_eq!(obj["prompt_cache_key"], outbound_session_id);
+        assert_eq!(obj["model"], "gpt-5.6-sol");
+        assert_eq!(obj["stream"], serde_json::json!(true));
+    }
+
+    /// I8（反面·不造键）：客户端没带 `prompt_cache_key` ⇒ 不得凭空制造
+    /// （与 Go 侧同项修复语义一致：`prompt_cache_key` 缺失属输入驱动）。
+    #[test]
+    fn absent_prompt_cache_key_is_not_synthesized() {
+        let mut obj = body_object(serde_json::json!({"model": "gpt-5.6-sol"}));
+        rewrite_prompt_cache_key(&mut obj, "0198f2b0-0000-7000-8000-000000000001");
+        assert!(
+            obj.get("prompt_cache_key").is_none(),
+            "客户端未带缓存键时不得制造该键"
+        );
+    }
+
+    /// 非字符串 / 空串 / 已等于出站值 ⇒ 一律原样保留（不多引入一处差异）。
+    #[test]
+    fn non_string_empty_or_matching_prompt_cache_key_is_left_alone() {
+        let outbound_session_id = "0198f2b0-0000-7000-8000-000000000001";
+        for raw in [
+            serde_json::json!(null),
+            serde_json::json!(7),
+            serde_json::json!({"nested": "object"}),
+            serde_json::json!(""),
+            serde_json::json!("   "),
+        ] {
+            let mut obj = body_object(serde_json::json!({ "prompt_cache_key": raw.clone() }));
+            rewrite_prompt_cache_key(&mut obj, outbound_session_id);
+            assert_eq!(obj["prompt_cache_key"], raw, "非空字符串以外一律不动: {raw}");
+        }
+        // 已相等 ⇒ 连序列化结果都逐字不变。
+        let mut obj = body_object(serde_json::json!({ "prompt_cache_key": outbound_session_id }));
+        let before = Value::Object(obj.clone()).to_string();
+        rewrite_prompt_cache_key(&mut obj, outbound_session_id);
+        assert_eq!(Value::Object(obj).to_string(), before);
+    }
+
+    /// 出站 session-id 为空（不可达的防御分支）⇒ 不改写。
+    #[test]
+    fn empty_outbound_session_id_is_a_noop() {
+        let mut obj = body_object(serde_json::json!({"prompt_cache_key": "client-key"}));
+        rewrite_prompt_cache_key(&mut obj, "  ");
+        assert_eq!(obj["prompt_cache_key"], "client-key");
     }
 }
 

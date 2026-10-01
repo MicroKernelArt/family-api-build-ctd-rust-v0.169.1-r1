@@ -226,6 +226,19 @@ pub async fn execute_responses_raw(
     //    仍由官方 client、压缩路径与 BearerAuthProvider 自写。
     let (headers, trailing_headers) = outbound_headers(ctx, &projection);
 
+    // I8：`body.prompt_cache_key` 随**出站** session-id（官方根会话两者同源，
+    // 基准表 `invariants.I8` = PASS；v1 的原始值是客户端自己的会话标识，
+    // 见 `metadata::rewrite_prompt_cache_key` 的文档）。改写值就取上一步定稿的
+    // 出站头 `session-id` ⇒ 与 v1 写入 header / body
+    // `client_metadata.session_id` 的是同一个值，不新增第二个算 session-id 的
+    // 地方；只影响该键（`docs/24 §4.2 b`）。
+    if let Some(outbound_session_id) = headers
+        .get("session-id")
+        .and_then(|value| value.to_str().ok())
+    {
+        metadata::rewrite_prompt_cache_key(&mut obj, outbound_session_id);
+    }
+
     // capture 旁路（capture-r1）：请求体校验通过后、发上游前入队
     // （设计 §6.3）。白名单不匹配 = None，零成本原路径。句柄在上游失败
     // 早退时 Drop → best-effort Done(ok=false) → 诚实 .resp.err 终态。
@@ -382,7 +395,10 @@ mod tests {
     use super::V1_TRAILING_HEADER_ORDER;
     use super::outbound_headers;
     use super::session_headers;
+    use crate::transport::metadata;
     use codex_core::CodexResponsesMetadata;
+    use serde_json::Map;
+    use serde_json::Value;
     use std::collections::BTreeMap;
 
     /// 生产形态的承载集合（Go `codex_transport_sidecar.go` 写入的 11 个白名单头
@@ -555,6 +571,86 @@ mod tests {
                 "internal header {name} leaked to upstream projection"
             );
         }
+    }
+
+    /// I8 的合成层断言（`baseline/official-1592.json:invariants.I8` /
+    /// `docs/24 §4.2 b`）：v1 body 的 `prompt_cache_key` 与**出站头**
+    /// `session-id` 同源 ⇒ `body.prompt_cache_key == 出站 session-id`；且这一步
+    /// 只改这一个键（其余 JSON 路径逐字不变）。
+    ///
+    /// 入站 body 复刻 round-1 装置用的真实样本
+    /// （`tools/ctd-parity/fixtures/inbound-codex-0159.json` 的 body：客户端自带
+    /// `prompt_cache_key` = 客户端自己的会话标识）。
+    #[test]
+    fn i8_prompt_cache_key_equals_outbound_session_id_and_touches_nothing_else() {
+        let mut ctx = crate::contract::RequestContext {
+            session: Some(crate::contract::headers::SessionSnapshot {
+                session_id: "01a0f7e2-8d7e-73b1-a4f0-d903f408d712".to_string(),
+                thread_id: "01a0f7e2-8d7e-73b1-a4f0-d903f408d712".to_string(),
+                window_id: "01a0f7e2-8d7e-73b1-a4f0-d903f408d712:1".to_string(),
+            }),
+            ..Default::default()
+        };
+        ctx.carried_headers = BTreeMap::from([(
+            "session-id".to_string(),
+            "01a0f7e2-8d7e-73b1-a4f0-d903f408d712".to_string(),
+        )]);
+        let (headers, _) = outbound_headers(&ctx, &projection());
+        let outbound_session_id = headers
+            .get("session-id")
+            .expect("v1 必写出站 session-id")
+            .to_str()
+            .expect("ASCII session-id");
+
+        let before: Map<String, Value> = serde_json::from_str(
+            r#"{"model":"gpt-5.6-sol","instructions":"ctd parity probe","input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]}],"stream":true,"store":false,"prompt_cache_key":"01a0f307-43d2-7a92-90b5-c0d6ec15eed3"}"#,
+        )
+        .expect("fixture body");
+        let mut after = before.clone();
+        metadata::rewrite_prompt_cache_key(&mut after, outbound_session_id);
+
+        // I8：body.prompt_cache_key == 出站 session-id（此处就是出站头的值）。
+        assert_eq!(after["prompt_cache_key"], outbound_session_id);
+        // 「只影响一项」的可重算断言：除该键外零差异。
+        assert_eq!(
+            changed_paths(&Value::Object(before), &Value::Object(after)),
+            vec!["/prompt_cache_key".to_string()]
+        );
+    }
+
+    /// 客户端**没带** `prompt_cache_key` ⇒ 组装后也不得有该键（不凭空造键）。
+    #[test]
+    fn i8_absent_client_cache_key_stays_absent() {
+        let mut obj: Map<String, Value> =
+            serde_json::from_str(r#"{"model":"gpt-5.6-sol","stream":true}"#).expect("body");
+        metadata::rewrite_prompt_cache_key(&mut obj, "01a0f7e2-8d7e-73b1-a4f0-d903f408d712");
+        assert!(obj.get("prompt_cache_key").is_none());
+    }
+
+    /// 两棵 JSON 树间「值不同」的路径集合（`/a/b`），用于断言「只改了一个键」。
+    fn changed_paths(before: &Value, after: &Value) -> Vec<String> {
+        fn walk(before: &Value, after: &Value, path: &str, out: &mut Vec<String>) {
+            match (before, after) {
+                (Value::Object(before), Value::Object(after)) => {
+                    for (key, value) in before {
+                        let child = format!("{path}/{key}");
+                        match after.get(key) {
+                            Some(other) => walk(value, other, &child, out),
+                            None => out.push(child),
+                        }
+                    }
+                    for key in after.keys().filter(|key| !before.contains_key(key.as_str())) {
+                        out.push(format!("{path}/{key}"));
+                    }
+                }
+                _ if before != after => out.push(path.to_string()),
+                _ => {}
+            }
+        }
+        let mut out = Vec::new();
+        walk(before, after, "", &mut out);
+        out.sort();
+        out
     }
 
     #[test]
