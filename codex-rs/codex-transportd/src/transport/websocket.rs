@@ -51,6 +51,12 @@ pub fn build_ws_headers(
         http::header::HeaderName::from_static("openai-beta"),
         HeaderValue::from_static(RESPONSES_WEBSOCKETS_V2_BETA_HEADER_VALUE),
     );
+    // 承载头（FR-004）**有意不注入 WS 握手**：官方 WS 握手头集合就是上面这一套
+    // （`x-client-request-id` = thread id / session-id / thread-id /
+    // x-codex-window-id / openai-beta），turn-metadata 等元数据在 WS 上走 body 的
+    // `client_metadata`，不作为握手头出现
+    // （core/tests/suite/client_websockets.rs 断言 handshake header 为 None）。
+    // 把承载的 HTTP 元数据头塞进 WS 握手会凭空造出官方客户端从不发送的头。
     headers
 }
 

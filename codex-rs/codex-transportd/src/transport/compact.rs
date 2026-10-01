@@ -66,6 +66,8 @@ pub async fn execute_compact_raw(
     let mut headers = responses::installation_header(installation_id);
     headers.extend(responses::session_headers(ctx));
     headers.extend(responses::compatibility_headers(&projection));
+    // 承载头（FR-004）：与 responses 路径同一通道，保证 compact 与 R-Go 直连一致。
+    headers.extend(ctx.carried_header_map());
 
     // capture 旁路（capture-r1）：请求体校验通过后、发上游前入队；
     // 上游失败早退时句柄 Drop → 诚实 .resp.err 终态。

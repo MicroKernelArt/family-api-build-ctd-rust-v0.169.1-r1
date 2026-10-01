@@ -110,10 +110,20 @@ pub async fn execute_responses_raw(
         extra,
         projection.client_metadata(/*include_internal*/ true),
     );
+    // canonical 位对齐：官方 HTTP 把 turn-metadata 同时放在 body client_metadata
+    // 与 compatibility header；projection 由 snapshot 合成拿不到该值，用承载值补。
+    metadata::inject_carried_turn_metadata(&mut obj, &ctx.carried_headers);
 
     // 3. extra headers（空白 HeaderMap 起步；originator/UA 由 client 默认头提供）。
     let mut headers = session_headers(ctx);
     headers.extend(compatibility_headers(&projection));
+    // 承载头（FR-004 唯一 header 通道）：Go 侧已按账号身份 scope 完成的
+    // 官方 x-codex-* 元数据原样注入并覆盖本地投影，使 rust_sidecar 出站
+    // 与 R-Go 直连逐头一致。凭据头（authorization / chatgpt-account-id /
+    // cookie）在解析期已 fail closed，不在承载集合内；本地必需头
+    // （host/content-length/accept/content-type）与 authorization /
+    // chatgpt-account-id 仍由官方 client 与 BearerAuthProvider 自写。
+    headers.extend(ctx.carried_header_map());
 
     // capture 旁路（capture-r1）：请求体校验通过后、发上游前入队
     // （设计 §6.3）。白名单不匹配 = None，零成本原路径。句柄在上游失败

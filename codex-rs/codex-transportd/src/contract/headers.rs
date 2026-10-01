@@ -3,7 +3,13 @@
 //! 所有 `X-CTD-*` header 在入口解析后即被消费并丢弃；Rust 从空白
 //! `HeaderMap` 经官方 builder 构造 upstream 请求，禁止
 //! `headers.extend(internal_request.headers())`。
+//!
+//! 唯一例外是受控白名单通道 [`CARRIED_HEADERS_HEADER`]：Go 侧已按账号身份
+//! scope 完成的官方 `x-codex-*` 元数据以 JSON 承载，解析后只保留
+//! [`CARRIED_HEADER_NAMES`] 内的键（凭据键 fail closed），注入时值原样写入
+//! 上游投影——它不是"整块 header 继承"，而是逐键白名单。
 
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 use http::HeaderMap;
@@ -46,6 +52,35 @@ pub const ATTACHMENT_ID_HEADER: &str = "x-ctd-attachment-id";
 /// capture 白名单身份（capture-r1；仅 UDS，Go 从认证后的 API Key 注入；
 /// 只允许 capture 模块消费，禁止加入任何上游投影）。
 pub const USER_ID_HEADER: &str = "x-ctd-user-id";
+/// 白名单出站头承载（FR-004 唯一 header 通道；Go 侧
+/// `codex_transport_sidecar.go` 写入，单个 header 承载 JSON object<string,string>）。
+/// 编码契约（两端逐字一致）：UTF-8 JSON object，键为小写官方 header 名，
+/// 值为 Go 侧已按账号身份 scope 完成的最终出站值。
+pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
+
+/// 允许承载到上游投影的官方 header 白名单（小写）。
+/// 与 Go 侧 `codex_transport_integration.go` 的 `codexCarriedHeaderNames`
+/// **逐字相等**；任何一侧增删都会让上游投影与 R-Go 直连发生漂移。
+///
+/// 有意不纳入：`user-agent` / `originator` / `version`（跨语言契约显式禁止携带，
+/// 由官方 client 信封产出）、`x-codex-installation-id`（installation 身份由
+/// sidecar 从 account_key 确定性派生）、`x-codex-parent-thread-id` /
+/// `x-openai-subagent`（subagent 作用域，不在 R-Go 对拍范围）。
+pub const CARRIED_HEADER_NAMES: &[&str] = &[
+    "session-id",
+    "thread-id",
+    "x-codex-window-id",
+    "x-codex-turn-metadata",
+    "x-codex-beta-features",
+    "x-codex-routing-hint",
+    "x-openai-internal-codex-responses-lite",
+    "x-client-request-id",
+    "openai-beta",
+];
+
+/// 凭据硬护栏：这些名字绝不进入上游投影，出现即 fail closed
+/// （与 Go 侧 `codexCarriedHeaderDenylist` 逐字相等）。
+pub const CARRIED_HEADER_DENYLIST: &[&str] = &["authorization", "chatgpt-account-id", "cookie"];
 
 /// 请求目的（仅低基数观测，不成为 upstream header/body 字段）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -102,6 +137,10 @@ pub struct RequestContext {
     pub attachment_id: Option<String>,
     /// capture 白名单身份（capture-r1；缺省 None，不 fail；仅 capture 模块消费）。
     pub user_id: Option<String>,
+    /// 白名单出站头承载（FR-004）：Go 侧已 scope 完成的官方 x-codex-* 元数据。
+    /// 解析时只保留 [`CARRIED_HEADER_NAMES`]，凭据键 fail closed；注入端原样
+    /// 写入上游投影（覆盖 sidecar 本地投影）。
+    pub carried_headers: BTreeMap<String, String>,
     /// 内部 traceparent（只建立 Go→Rust child span；不得复制到 upstream）。
     pub traceparent: Option<String>,
 }
@@ -364,10 +403,87 @@ pub fn parse_request_context(
             .filter(|v| !v.is_empty())
             .map(String::from),
         user_id: header_str(headers, USER_ID_HEADER).map(String::from),
+        carried_headers: parse_carried_headers(header_str(headers, CARRIED_HEADERS_HEADER))?,
         traceparent: header_str(headers, "traceparent")
             .filter(|v| !v.is_empty())
             .map(ToString::to_string),
     })
+}
+
+/// 解析并校验白名单承载头（[`CARRIED_HEADERS_HEADER`]）。
+///
+/// 编码契约与 Go 侧 `codex_transport_sidecar.go::encodeCodexCarriedHeaders`
+/// 逐字一致：UTF-8 JSON object<string,string>，键为小写官方 header 名。
+///
+/// 解析规则（fail closed）：
+/// - 缺失/空白 → 空 map（不承载，等价于旧行为）；
+/// - 非法 JSON / 非 object<string,string> / 非法 header 名或值 → typed
+///   contract error（在任何 upstream I/O 之前）；
+/// - 凭据键（[`CARRIED_HEADER_DENYLIST`]）→ typed contract error；
+/// - 白名单外的键 → 丢弃（结构上不可能进入上游投影）。
+fn parse_carried_headers(raw: Option<&str>) -> Result<BTreeMap<String, String>, LocalError> {
+    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(BTreeMap::new());
+    };
+    let decoded: BTreeMap<String, String> = serde_json::from_str(raw).map_err(|_| {
+        LocalError::new(
+            "invalid_carried_headers",
+            ErrorClass::Contract,
+            ErrorPhase::Validate,
+            false,
+            "X-CTD-Carried-Headers 不是合法的 JSON object<string,string>",
+        )
+    })?;
+    let mut carried = BTreeMap::new();
+    for (name, value) in decoded {
+        let name = name.trim().to_ascii_lowercase();
+        if CARRIED_HEADER_DENYLIST.contains(&name.as_str()) {
+            // 只报 header 名，绝不回显值（值可能是凭据）。
+            return Err(LocalError::new(
+                "carried_headers_credential_rejected",
+                ErrorClass::Contract,
+                ErrorPhase::Validate,
+                false,
+                format!("承载头禁止携带凭据头 {name}"),
+            ));
+        }
+        if !CARRIED_HEADER_NAMES.contains(&name.as_str()) || value.is_empty() {
+            continue;
+        }
+        if http::header::HeaderName::from_bytes(name.as_bytes()).is_err()
+            || HeaderValue::from_str(&value).is_err()
+        {
+            return Err(LocalError::new(
+                "invalid_carried_headers",
+                ErrorClass::Contract,
+                ErrorPhase::Validate,
+                false,
+                format!("承载头 {name} 的名字或值不是合法 HTTP header"),
+            ));
+        }
+        carried.insert(name, value);
+    }
+    Ok(carried)
+}
+
+impl RequestContext {
+    /// 承载头 → 上游投影 `HeaderMap`（仅白名单，值原样注入）。
+    ///
+    /// 解析期已完成名字/值合法性校验，因此这里只做逐键搬运，不做任何
+    /// 归一化/重编码（保持与 R-Go 直连逐字节一致）。
+    pub fn carried_header_map(&self) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        for (name, value) in &self.carried_headers {
+            let Ok(name) = http::header::HeaderName::from_bytes(name.as_bytes()) else {
+                continue;
+            };
+            let Ok(value) = HeaderValue::from_str(value) else {
+                continue;
+            };
+            headers.insert(name, value);
+        }
+        headers
+    }
 }
 
 fn now_ms() -> u64 {
@@ -558,6 +674,112 @@ mod p1_header_tests {
         let debug = format!("{ctx:?}");
         assert!(!debug.contains("pk-super-secret"));
         assert!(!debug.contains("rt-"));
+    }
+}
+
+#[cfg(test)]
+mod carried_header_tests {
+    use super::*;
+    use crate::contract::operation::Operation;
+
+    fn base() -> HeaderMap {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(PROTOCOL_VERSION_HEADER, HeaderValue::from_static("1"));
+        headers.insert(REQUEST_ID_HEADER, HeaderValue::from_static("req_carried"));
+        headers.insert(ACCOUNT_KEY_HEADER, HeaderValue::from_static("ak-1"));
+        headers.insert(CREDENTIAL_REVISION_HEADER, HeaderValue::from_static("rev-1"));
+        headers.insert(ACCESS_TOKEN_HEADER, HeaderValue::from_static("sk-secret"));
+        headers.insert(PROXY_KIND_HEADER, HeaderValue::from_static("direct"));
+        headers.insert(
+            SESSION_ID_HEADER,
+            HeaderValue::from_static("0198f2b0-0000-7000-8000-000000000001"),
+        );
+        headers.insert(
+            THREAD_ID_HEADER,
+            HeaderValue::from_static("0198f2b0-0000-7000-8000-000000000002"),
+        );
+        headers.insert(
+            WINDOW_ID_HEADER,
+            HeaderValue::from_static("0198f2b0-0000-7000-8000-000000000002:1"),
+        );
+        headers
+    }
+
+    fn with_carried(raw: &str) -> Result<RequestContext, LocalError> {
+        let mut headers = base();
+        headers.insert(
+            CARRIED_HEADERS_HEADER,
+            HeaderValue::from_str(raw).expect("header value"),
+        );
+        parse_request_context(&headers, Operation::Responses)
+    }
+
+    #[test]
+    fn absent_carrier_is_empty_and_never_fails() {
+        // 旧版 Go（无承载通道）必须继续可用：缺省 = 空 map，不 fail。
+        let ctx = parse_request_context(&base(), Operation::Responses).expect("parse");
+        assert!(ctx.carried_headers.is_empty());
+        assert!(ctx.carried_header_map().is_empty());
+    }
+
+    #[test]
+    fn whitelisted_values_are_carried_and_injected_verbatim() {
+        let raw = r#"{"x-codex-turn-metadata":"{\"sandbox\":\"seatbelt\",\"model\":\"gpt-5\"}","x-client-request-id":"req-abc","openai-beta":"responses_multi_agent=2026-01-01"}"#;
+        let ctx = with_carried(raw).expect("parse");
+        assert_eq!(ctx.carried_headers.len(), 3);
+        let outbound = ctx.carried_header_map();
+        assert_eq!(
+            outbound.get("x-codex-turn-metadata").expect("turn metadata"),
+            r#"{"sandbox":"seatbelt","model":"gpt-5"}"#
+        );
+        assert_eq!(outbound.get("x-client-request-id").unwrap(), "req-abc");
+        assert_eq!(
+            outbound.get("openai-beta").unwrap(),
+            "responses_multi_agent=2026-01-01"
+        );
+    }
+
+    #[test]
+    fn credentials_are_never_carried() {
+        // 硬护栏：authorization / chatgpt-account-id / cookie 出现即 fail closed
+        // （不静默丢弃，避免掩盖上游身份注入缺陷）。
+        for denied in CARRIED_HEADER_DENYLIST {
+            let raw = format!(r#"{{"{denied}":"secret-value"}}"#);
+            let err = with_carried(&raw).expect_err("credential must be rejected");
+            assert_eq!(err.code, "carried_headers_credential_rejected");
+            assert!(
+                !format!("{err:?}").contains("secret-value"),
+                "凭据值绝不出现在错误正文"
+            );
+        }
+    }
+
+    #[test]
+    fn non_whitelisted_headers_are_dropped() {
+        let raw = r#"{"x-codex-installation-id":"inst-1","user-agent":"codex-tui/0.159.0","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
+        let ctx = with_carried(raw).expect("parse");
+        assert_eq!(ctx.carried_headers.len(), 1);
+        assert_eq!(
+            ctx.carried_headers.get("x-codex-window-id").map(String::as_str),
+            Some("0198f2b0-0000-7000-8000-000000000002:1")
+        );
+        let outbound = ctx.carried_header_map();
+        assert!(outbound.get("x-codex-installation-id").is_none());
+        assert!(outbound.get("user-agent").is_none());
+    }
+
+    #[test]
+    fn malformed_carrier_is_contract_error() {
+        for raw in ["not-json", "[]", r#"{"x-client-request-id":1}"#] {
+            let err = with_carried(raw).expect_err("malformed");
+            assert_eq!(err.code, "invalid_carried_headers");
+        }
+    }
+
+    #[test]
+    fn blank_carrier_is_empty() {
+        let ctx = with_carried("   ").expect("parse");
+        assert!(ctx.carried_headers.is_empty());
     }
 }
 

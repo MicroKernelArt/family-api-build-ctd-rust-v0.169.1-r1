@@ -205,6 +205,40 @@ pub fn inject_official_client_metadata(
     obj.insert("client_metadata".to_string(), Value::Object(merged));
 }
 
+/// `x-codex-turn-metadata` 在 body 中的 canonical 键名
+/// （官方 `client_metadata()` 用它写入 body；compatibility header 只是投影）。
+pub const TURN_METADATA_CLIENT_METADATA_KEY: &str = "x-codex-turn-metadata";
+
+/// 把承载的 `x-codex-turn-metadata` 补进 body 的 canonical 位。
+///
+/// 官方客户端 HTTP 同时写两处：body `client_metadata["x-codex-turn-metadata"]`
+/// （canonical）与 compatibility header。sidecar 的 projection 只由 session
+/// snapshot 合成，`has_turn_metadata()` 恒为 false；Go 侧 reserved 剥离又会删掉
+/// 客户端原始值 ⇒ 这一位只有承载通道能补，否则 rust_sidecar 的 body 比 R-Go
+/// 直连少一个 canonical 字段。
+///
+/// 值按字符串原样写入（官方投影同样是 JSON 字符串），已存在时不覆盖。
+/// 已知近似：承载的是 **header** 值；若客户端 header 与 body 两处取值不一致，
+/// rust_sidecar 采用 header 值（R-Go 采用 body 值）。
+pub fn inject_carried_turn_metadata(
+    obj: &mut Map<String, Value>,
+    carried: &std::collections::BTreeMap<String, String>,
+) {
+    let Some(raw) = carried.get(TURN_METADATA_CLIENT_METADATA_KEY) else {
+        return;
+    };
+    let Some(Value::Object(metadata)) = obj.get_mut("client_metadata") else {
+        return;
+    };
+    if metadata.contains_key(TURN_METADATA_CLIENT_METADATA_KEY) {
+        return;
+    }
+    metadata.insert(
+        TURN_METADATA_CLIENT_METADATA_KEY.to_string(),
+        Value::String(raw.clone()),
+    );
+}
+
 /// 构造官方 metadata 投影（UUIDv7 校验在入口完成）。
 pub fn build_projection(
     installation_id: &str,
