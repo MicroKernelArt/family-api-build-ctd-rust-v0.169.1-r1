@@ -1,6 +1,6 @@
 //! codex-transportd：Codex transport sidecar（TLS-CTD-001）。
 //!
-//! UDS-only 封闭 operation server，基于官方 rust-v0.159.0 transport。
+//! UDS-only 封闭 operation server，基于官方 rust-v0.159.2 transport。
 
 use std::process::ExitCode;
 

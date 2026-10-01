@@ -5,9 +5,9 @@
 | 输入 | 值 | 证据 |
 |---|---|---|
 | upstream repo | `https://github.com/openai/codex` | UPSTREAM_BASE.md |
-| upstream tag | `rust-v0.159.0` | `git ls-remote refs/tags/rust-v0.159.0^{}` |
-| upstream commit | `687a119f0fcaace47e1f1abcc77cec6c813fd6da` | 同上 |
-| upstream Cargo.lock SHA-256 | `16b915e94730a7e598182620923fc6eae19e32366d3b5ef91128002575ae24af` | `shasum -a 256` |
+| upstream tag | `rust-v0.159.2` | `git ls-remote refs/tags/rust-v0.159.2^{}` |
+| upstream commit | `ff6aec96948b70d94983af2641a6b67c94faeff5` | 同上 |
+| upstream Cargo.lock SHA-256 | `4fab6fe99180e2b8f305bd4b33c1b4bd825e3fa4cdef1045be750843bd3d431e` | `shasum -a 256` |
 | fork branch | （不声明：不存在该名字的分支；实际构建 ref 见 receipt 的 review_commit） | — |
 | fork commit | `（构建时由 build.rs 注入，见 /info fork_commit）`（构建时自动注入，/info fork_commit 一致） | git + build.rs |
 | fork Cargo.lock SHA-256 | `（构建时由 build.rs 计算，见 /info fork_cargo_lock_sha256）`（构建时自动计算，/info fork_cargo_lock_sha256 一致） | build.rs sha2 |

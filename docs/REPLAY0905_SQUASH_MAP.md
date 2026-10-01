@@ -2,8 +2,8 @@
 
 > **历史记录 / 已被取代（superseded）**：本文件是 2026-09-06 的 `replay0905` review
 > 压缩记录，基线 `042fb41b`（rust-v0.153.4），其中「Phase C 0.153.4 API drift」等内容
-> 属于该基线。本线已由 `replay0905-v0159-r1` 取代（基线 rust-v0.159.0，peeled
-> `687a119f0f`）；当前线的补丁、身份与证据以 `patches/transportd/series.yaml`、
+> 属于该基线。本线已由 `replay0905-v0159-r1` 取代，并再升基线至 rust-v0.159.2
+> （peeled `ff6aec96`；上一代基线为 rust-v0.159.0 / peeled `687a119f0f`）；当前线的补丁、身份与证据以 `patches/transportd/series.yaml`、
 > `replay/manifest.yaml` 与 `PATCHES.md` 为准，本文件仅保留作逐 patch 溯源。
 
 > 2026-09-06。本分支 `replay0905` 是 **review 视图**：把 codex transportd 的 133 个

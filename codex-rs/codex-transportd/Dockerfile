@@ -19,7 +19,7 @@ WORKDIR /src/codex-rs
 # R8-F1：RELEASE_ID 经 build-arg 注入（build.rs option_env! 编译期读取）。
 # 缺省值刻意取 *-dev：不经 build-arg 直接构建时，产出的就是 dev 镜像；
 # 正式构建由 profile 层强制传入 series.yaml 的 release_id（不一致即拒绝）。
-ARG RELEASE_ID=ctd-rust-v0.159.0-dev
+ARG RELEASE_ID=ctd-rust-v0.159.2-dev
 ENV CODEX_TRANSPORTD_RELEASE_ID=$RELEASE_ID
 RUN --mount=type=bind,source=.,target=/src,readonly \
     --mount=type=cache,target=/src/codex-rs/target \

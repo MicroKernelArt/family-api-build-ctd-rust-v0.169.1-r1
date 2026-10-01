@@ -8,20 +8,20 @@
 /// 构建流水线可覆盖为正式 ID，缺省为 dev）。
 pub const RELEASE_ID: &str = match option_env!("CODEX_TRANSPORTD_RELEASE_ID") {
     Some(value) => value,
-    None => "ctd-rust-v0.159.0-dev",
+    None => "ctd-rust-v0.159.2-dev",
 };
 
 /// Upstream tag（官方 exact-tag fork 基准）。
-pub const UPSTREAM_TAG: &str = "rust-v0.159.0";
+pub const UPSTREAM_TAG: &str = "rust-v0.159.2";
 
-/// Upstream peeled commit（`git ls-remote refs/tags/rust-v0.159.0^{}`）。
-/// 377f7f55 是 annotated tag 对象；peeled source commit 才是 687a119f……
+/// Upstream peeled commit（`git ls-remote refs/tags/rust-v0.159.2^{}`）。
+/// 8b9fa496 是 annotated tag 对象；peeled source commit 才是 ff6aec96……
 /// （real-lane codexp RF1）。与 Go 侧 /info pin 一致使用 peeled commit。
-pub const UPSTREAM_COMMIT: &str = "687a119f0fcaace47e1f1abcc77cec6c813fd6da";
+pub const UPSTREAM_COMMIT: &str = "ff6aec96948b70d94983af2641a6b67c94faeff5";
 
 /// Upstream `codex-rs/Cargo.lock` SHA-256（fork 之前官方锁文件）。
 pub const UPSTREAM_LOCK_SHA256: &str =
-    "16b915e94730a7e598182620923fc6eae19e32366d3b5ef91128002575ae24af";
+    "4fab6fe99180e2b8f305bd4b33c1b4bd825e3fa4cdef1045be750843bd3d431e";
 
 /// Rust toolchain（`codex-rs/rust-toolchain.toml`）。
 pub const TOOLCHAIN: &str = "1.95.0";
