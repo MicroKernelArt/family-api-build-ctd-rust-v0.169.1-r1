@@ -200,6 +200,63 @@ impl<T: HttpTransport> EndpointSession<T> {
         .map_err(ApiError::from)
     }
 
+    /// raw unary + 官方压缩形态（transportd FR-012 compact）：与
+    /// [`Self::stream_raw_with`] **逐字同构**（`make_request` → `configure`
+    /// → `into_prepared` → `auth.apply_auth` → 发出），只把「流式」换成
+    /// 「unary」（`execute_preserving_status`）；与
+    /// [`Self::execute_raw_with`] 只差 `EncodedJsonBody` + `into_prepared`。
+    ///
+    /// ★ 为什么必须 `into_prepared`（而不是 `RequestBody::Json` 直发）：
+    /// 官方 `content-encoding` / `content-type` 由压缩路径与
+    /// `prepare_encoded_json` 写入（`http-client/src/request.rs`），
+    /// `into_prepared` 把它们**定稿在 `auth.apply_auth` 之前** ⇒ 出站序为
+    /// `accept` → `content-encoding` → `content-type` → `authorization` →
+    /// `chatgpt-account-id` → `originator` → `user-agent`，与官方
+    /// `/responses` 的构造序一致。`execute_raw_with` 不做 `into_prepared`，
+    /// `content-type` 会被推迟到传输栈（落在 auth 之后），序不同。
+    ///
+    /// `content-length` 不在本层：由传输栈按 `into_prepared` 定稿的
+    /// **最终字节数**（压缩后）生成，头与体同一权威，结构上不可能不一致。
+    #[instrument(
+        name = "endpoint_session.execute_raw_encoded_with",
+        level = "info",
+        skip_all,
+        fields(http.method = %method, api.path = path)
+    )]
+    pub(crate) async fn execute_raw_encoded_with<C>(
+        &self,
+        method: Method,
+        path: &str,
+        extra_headers: HeaderMap,
+        body: Option<EncodedJsonBody>,
+        configure: C,
+    ) -> Result<RawRetryOutcome<Response>, ApiError>
+    where
+        C: Fn(&mut Request),
+    {
+        let body = body.map(RequestBody::EncodedJson);
+        let mut request = self.make_request(&method, path, &extra_headers, body.as_ref());
+        configure(&mut request);
+        let request = request.into_prepared().map_err(TransportError::Build)?;
+        let make_request = || request.clone();
+
+        run_with_request_telemetry_preserving_status(
+            self.provider.retry.to_policy(),
+            self.request_telemetry.clone(),
+            make_request,
+            |req| {
+                let auth = self.auth.clone();
+                let transport = &self.transport;
+                async move {
+                    let req = auth.apply_auth(req).await.map_err(TransportError::from)?;
+                    transport.execute_preserving_status(req).await
+                }
+            },
+        )
+        .await
+        .map_err(ApiError::from)
+    }
+
     /// raw 流式形态（transportd R6）：terminal non-2xx 以 `Ok` 返回且
     /// body 可逐块读取；attempt 次数真实。重试语义与
     /// [`Self::stream_encoded_json_with`] 一致。

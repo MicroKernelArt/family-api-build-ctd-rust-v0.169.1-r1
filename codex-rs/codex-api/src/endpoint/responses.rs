@@ -244,19 +244,47 @@ impl<T: HttpTransport> ResponsesClient<T> {
     /// real attempt count. The caller (Go) decides window advance only on a
     /// confirmed complete 2xx success; timeout/EOF/5xx/parse failure never
     /// advance.
+    ///
+    /// ★ 出站编码与 [`Self::stream_raw`] **同一权威**：`compression` 决定
+    /// body 字节与 `content-encoding`（两者由 `http-client` 的压缩路径一并
+    /// 写入，结构上不可能「压了没写头」或「写了头没压」），`content-length`
+    /// 由传输栈按压缩后字节数生成。`into_prepared` 在 `auth.apply_auth`
+    /// 之前定稿 ⇒ `content-encoding` / `content-type` 落在 auth 之前
+    /// （见 [`EndpointSession::execute_raw_encoded_with`]）。
+    ///
+    /// ★ `accept` 固定 `application/json`（不是 responses 的
+    /// `text/event-stream`）：compact 上游是 **unary JSON** 协议，与 Go 侧
+    /// R-Go 直连对同一 route 的强制值逐字一致
+    /// （`sub2api backend/internal/service/openai_gateway_passthrough.go`：
+    /// `if isOpenAIResponsesCompactPath(c) { req.Header.Set("accept",
+    /// "application/json") }`，注释「compact 上游是 unary JSON 协议……
+    /// 避免上游按 SSE 返回」）。两侧同 route 必须同值，否则 R-CTD 与 R-Go
+    /// 出站头立刻对不上。
     pub async fn execute_raw_compact(
         &self,
         body: Value,
         extra_headers: HeaderMap,
+        compression: Compression,
         request_timeout: Duration,
     ) -> Result<codex_client::RawRetryOutcome<codex_client::Response>, ApiError> {
+        let body = EncodedJsonBody::encode(&body)
+            .map_err(|e| ApiError::Stream(format!("failed to encode compact request: {e}")))?;
+        let request_compression = match compression {
+            Compression::None => RequestCompression::None,
+            Compression::Zstd => RequestCompression::Zstd,
+        };
         self.session
-            .execute_raw_with(
+            .execute_raw_encoded_with(
                 Method::POST,
                 "/responses/compact",
                 extra_headers,
                 Some(body),
                 |req| {
+                    req.headers.insert(
+                        http::header::ACCEPT,
+                        HeaderValue::from_static("application/json"),
+                    );
+                    req.compression = request_compression;
                     req.timeout = Some(request_timeout);
                 },
             )
