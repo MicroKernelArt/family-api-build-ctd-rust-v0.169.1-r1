@@ -12,5 +12,6 @@ pub mod metadata;
 pub mod official_adapter;
 pub mod proxy;
 pub mod responses;
+pub mod responses_v3;
 pub mod url_policy;
 pub mod websocket;

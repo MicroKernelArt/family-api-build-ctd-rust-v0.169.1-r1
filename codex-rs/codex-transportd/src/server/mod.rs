@@ -22,6 +22,7 @@ use tokio::sync::Semaphore;
 
 use crate::build_info;
 use crate::config::Config;
+use crate::contract::Hookpoint;
 use crate::contract::RequestContext;
 use crate::contract::error::ErrorClass;
 use crate::contract::error::ErrorPhase;
@@ -352,7 +353,7 @@ async fn execute_operation_inner(
     body: Bytes,
 ) -> Result<Response, LocalError> {
     // 开关接线（步骤 5）：入口打一条低基数日志，标注本次请求实际生效的
-    // hookpoint。v3 与 v1 走同一条实现路径，差异只在这条标记上。
+    // hookpoint。
     tracing::info!(
         operation = ctx.operation.metric_label(),
         hookpoint = ctx.hookpoint.as_str(),
@@ -370,24 +371,38 @@ async fn execute_operation_inner(
         )
     };
     let raw = match ctx.operation {
-        Operation::Responses => {
-            crate::transport::responses::execute_responses_raw(
-                &state.pool,
-                &state.installation_id,
-                ctx,
-                body,
-            )
-            .await?
-        }
-        Operation::ResponsesCompact => {
-            crate::transport::compact::execute_compact_raw(
-                &state.pool,
-                &state.installation_id,
-                ctx,
-                body,
-            )
-            .await?
-        }
+        Operation::Responses => match ctx.hookpoint {
+            // v1：ctd 自建请求（默认实现，与开关落地前逐字相同）。
+            Hookpoint::V1 => {
+                crate::transport::responses::execute_responses_raw(
+                    &state.pool,
+                    &state.installation_id,
+                    ctx,
+                    body,
+                )
+                .await?
+            }
+            // v3：原样透传 Go 交付的完整出站头集与最终 body 字节。
+            Hookpoint::V3 => {
+                crate::transport::responses_v3::execute_responses_v3_raw(&state.pool, ctx, body)
+                    .await?
+            }
+        },
+        Operation::ResponsesCompact => match ctx.hookpoint {
+            Hookpoint::V1 => {
+                crate::transport::compact::execute_compact_raw(
+                    &state.pool,
+                    &state.installation_id,
+                    ctx,
+                    body,
+                )
+                .await?
+            }
+            Hookpoint::V3 => {
+                crate::transport::responses_v3::execute_compact_v3_raw(&state.pool, ctx, body)
+                    .await?
+            }
+        },
         Operation::Models => {
             crate::transport::auxiliary::execute_models_raw(&state.pool, ctx).await?
         }

@@ -242,4 +242,92 @@ impl<T: HttpTransport> EndpointSession<T> {
         .await
         .map_err(ApiError::from)
     }
+
+    /// v3（hookpoint=v3）raw 流式形态：body 是 Go 交付的**最终字节**，
+    /// ctd 原样透传（docs/20 §3.5 / §4.3 M1）。
+    ///
+    /// 与 [`Self::stream_raw_with`] 的差异**只在输入**，落在
+    /// `make_request → into_prepared` 这一段（`stream_raw_with` 的 224–226）：
+    /// - `extra_headers` 已是 Go 交付的**完整出站头集**，且 **不调用
+    ///   `configure` 闭包**——v3 下 ctd 不做任何 header/compression 决策；
+    /// - `body` 是 [`RequestBody::Raw`]，不走 `EncodedJson` 的 JSON 编码与
+    ///   压缩路径 ⇒ 字节逐字一致、键序与空白全部保留。
+    ///
+    /// 之后的一切与 v1 **逐字相同**：`into_prepared` 定稿 body，
+    /// `request.clone()` 供每次 attempt（`Bytes` 引用计数克隆，零拷贝），
+    /// `auth.apply_auth` 在发出前注入凭据，retry/超时/SSE 转发由官方
+    /// telemetry + retry 循环承担。★ 认证注入闭包**不做任何改动**。
+    #[instrument(
+        name = "endpoint_session.stream_raw_bytes_with",
+        level = "info",
+        skip_all,
+        fields(http.method = %method, api.path = path)
+    )]
+    pub(crate) async fn stream_raw_bytes_with(
+        &self,
+        method: Method,
+        path: &str,
+        extra_headers: HeaderMap,
+        body: Option<RequestBody>,
+    ) -> Result<RawRetryOutcome<StreamResponse>, ApiError> {
+        let request = self.make_request(&method, path, &extra_headers, body.as_ref());
+        let request = request.into_prepared().map_err(TransportError::Build)?;
+        let make_request = || request.clone();
+
+        run_with_request_telemetry_preserving_status(
+            self.provider.retry.to_policy(),
+            self.request_telemetry.clone(),
+            make_request,
+            |req| {
+                let auth = self.auth.clone();
+                let transport = &self.transport;
+                async move {
+                    let req = auth.apply_auth(req).await.map_err(TransportError::from)?;
+                    transport.stream_preserving_status(req).await
+                }
+            },
+        )
+        .await
+        .map_err(ApiError::from)
+    }
+
+    /// v3（hookpoint=v3）raw unary 形态（compact 同构）：与
+    /// [`Self::execute_raw_with`] 同形，但 body 走 [`RequestBody::Raw`] 且
+    /// 不调用 `configure`。`timeout` 显式传入（v3 没有 configure 闭包可写
+    /// `req.timeout`），其余（凭据注入 / retry / 状态保留）逐字同 v1。
+    #[instrument(
+        name = "endpoint_session.execute_raw_bytes_with",
+        level = "info",
+        skip_all,
+        fields(http.method = %method, api.path = path)
+    )]
+    pub(crate) async fn execute_raw_bytes_with(
+        &self,
+        method: Method,
+        path: &str,
+        extra_headers: HeaderMap,
+        body: Option<RequestBody>,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<RawRetryOutcome<Response>, ApiError> {
+        let mut request = self.make_request(&method, path, &extra_headers, body.as_ref());
+        request.timeout = timeout;
+        let request = request.into_prepared().map_err(TransportError::Build)?;
+        let make_request = || request.clone();
+
+        run_with_request_telemetry_preserving_status(
+            self.provider.retry.to_policy(),
+            self.request_telemetry.clone(),
+            make_request,
+            |req| {
+                let auth = self.auth.clone();
+                let transport = &self.transport;
+                async move {
+                    let req = auth.apply_auth(req).await.map_err(TransportError::from)?;
+                    transport.execute_preserving_status(req).await
+                }
+            },
+        )
+        .await
+        .map_err(ApiError::from)
+    }
 }

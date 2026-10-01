@@ -79,6 +79,30 @@ pub fn chatgpt_provider() -> Provider {
     }
 }
 
+/// v3（hookpoint=v3）专用 provider：与 [`chatgpt_provider`] 同 base/retry/
+/// idle timeout，但 **headers 为空**。
+///
+/// ★ 必需：`EndpointSession::make_request` 用
+/// `provider.build_request(...)` 起步，再 `req.headers.extend(extra_headers)`。
+/// `HeaderMap::extend` 对**同名键是替换**（`http` 1.4.0 `header/map.rs`
+/// `Extend<(Option<HeaderName>, T)>` 的 `Entry::Occupied` 分支 `e.insert(val)`），
+/// 但对 **provider 独有、Go 未交付的头则原样保留**。若沿用
+/// [`chatgpt_provider`]，provider 自带的 `version`（`CARGO_PKG_VERSION`）会在
+/// Go 未交付 `version` 时被 ctd 自行补上——**v3 下 ctd 不得做任何 header
+/// 决策**，那会变成 ctd 谎报自身构建版本。
+///
+/// 因此 v3 的头集**完全由 Go 决定**，provider 不得贡献任何默认头。
+pub fn chatgpt_provider_bare() -> Provider {
+    Provider {
+        name: "chatgpt".to_string(),
+        base_url: test_upstream_base_url(CHATGPT_CODEX_BASE_URL, "CTD_TEST_UPSTREAM_BASE_URL"),
+        query_params: None,
+        headers: HeaderMap::new(),
+        retry: official_retry(),
+        stream_idle_timeout: Duration::from_secs(300),
+    }
+}
+
 /// 官方 WHAM provider（usage/quota）。
 pub fn wham_provider() -> Provider {
     Provider {
@@ -215,6 +239,57 @@ mod tests {
     fn wham_provider_uses_backend_api_root() {
         let provider = wham_provider();
         assert_eq!(provider.base_url, "https://chatgpt.com/backend-api");
+    }
+
+    #[test]
+    fn bare_provider_contributes_no_default_headers() {
+        // ★ v3（hookpoint=v3）必需：EndpointSession::make_request 用
+        // provider.build_request 起步后 headers.extend(extra_headers)。
+        // extend 对同名键是**替换**，但 provider 独有、Go 未交付的头会原样
+        // 保留 ⇒ 非 bare provider 会让 ctd 在 v3 下自行补 version（谎报自身
+        // 构建版本）。bare provider 保证 v3 的头集完全由 Go 决定。
+        let bare = chatgpt_provider_bare();
+        assert!(bare.headers.is_empty(), "bare provider 不得携带任何默认头");
+        // 除默认头外与官方 provider 逐字段一致（同一 base/retry/idle）。
+        let official = chatgpt_provider();
+        assert_eq!(bare.base_url, official.base_url);
+        assert_eq!(bare.name, official.name);
+        assert_eq!(bare.retry.max_attempts, official.retry.max_attempts);
+        assert_eq!(bare.stream_idle_timeout, official.stream_idle_timeout);
+        // 官方 provider 恰好贡献 version（这正是 v3 必须绕开的那个头）。
+        assert_eq!(official.headers.len(), 1);
+        assert!(official.headers.contains_key("version"));
+    }
+
+    #[test]
+    fn v3_header_set_is_go_owned_not_provider_augmented() {
+        // 复现"若不换 bare provider 会发生什么"：Go 未交付 version 时，
+        // 官方 provider 会替 ctd 补一个 CARGO_PKG_VERSION。
+        let go_headers_without_version = http::HeaderMap::new();
+
+        let mut with_official = chatgpt_provider().headers.clone();
+        with_official.extend(go_headers_without_version.clone());
+        assert_eq!(
+            with_official.get("version").unwrap(),
+            env!("CARGO_PKG_VERSION"),
+            "非 bare provider 会在 Go 未交付时自补 version"
+        );
+
+        let mut with_bare = chatgpt_provider_bare().headers.clone();
+        with_bare.extend(go_headers_without_version);
+        assert!(with_bare.is_empty(), "bare provider 下头集完全由 Go 决定");
+
+        // 同名键的语义是**替换**（不是 append）：Go 交付的 version 覆盖 provider 的。
+        let mut go_headers = http::HeaderMap::new();
+        go_headers.insert("version", http::HeaderValue::from_static("0.159.2"));
+        let mut merged = chatgpt_provider().headers.clone();
+        merged.extend(go_headers.clone());
+        assert_eq!(merged.get_all("version").iter().count(), 1);
+        assert_eq!(merged.get("version").unwrap(), "0.159.2");
+
+        let mut merged = chatgpt_provider_bare().headers.clone();
+        merged.extend(go_headers);
+        assert_eq!(merged.get("version").unwrap(), "0.159.2");
     }
 
     #[test]

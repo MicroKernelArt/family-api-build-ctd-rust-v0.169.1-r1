@@ -330,6 +330,97 @@ async fn responses_client_sends_extra_headers() -> Result<()> {
 }
 
 #[tokio::test]
+async fn responses_client_stream_raw_passthrough_sends_go_bytes_verbatim() -> Result<()> {
+    // v3（hookpoint=v3）：body 是 Go 交付的最终字节，headers 是 Go 交付的
+    // 完整出站头集。本测试固定三件事：
+    //   1. body 走 RequestBody::Raw 且字节逐字（任何 JSON 编码/压缩都会破坏它）；
+    //   2. compression 恒 None ⇒ ctd 既不写 content-encoding 也不写 content-type；
+    //   3. 不调用 configure ⇒ ctd 不代补 accept（缺失即由调用方 fail closed）；
+    //      认证注入闭包保持不变（与 v1 同一段代码）。
+    let state = RecordingState::default();
+    let transport = RecordingTransport::new(state.clone());
+    let client = ResponsesClient::new(transport, provider("chatgpt-bare"), Arc::new(StaticAuth::new("tok", "acct")));
+
+    // 故意不是合法 JSON、也不是规范 UTF-8 尾部：任何 re-serialize 都会改变它。
+    let body = Bytes::from_static(b"{\"model\":\"gpt-5\"}  \nnot-json-tail\xFF\xFE");
+    let headers = HeaderMap::from_iter([
+        (
+            http::HeaderName::from_static("accept"),
+            HeaderValue::from_static("text/event-stream"),
+        ),
+        (
+            http::HeaderName::from_static("content-type"),
+            HeaderValue::from_static("application/json"),
+        ),
+        (
+            http::HeaderName::from_static("version"),
+            HeaderValue::from_static("0.159.2"),
+        ),
+    ]);
+
+    let outcome = client
+        .stream_raw_passthrough(body.clone(), headers)
+        .await?;
+    assert_eq!(outcome.attempts, 1);
+
+    let requests = state.take_stream_requests();
+    assert_path_ends_with(&requests, "/responses");
+    let request = &requests[0];
+
+    // 1. 逐字字节 + Raw 形态。
+    match request.body.as_ref() {
+        Some(RequestBody::Raw(raw)) => assert_eq!(raw.as_ref(), body.as_ref()),
+        other => panic!("v3 必须用 RequestBody::Raw 承载 Go 的最终字节，实际 {other:?}"),
+    }
+    assert_eq!(request.compression, codex_client::RequestCompression::None);
+
+    // 2. Go 交付的头原样在，且 ctd 没有新增 content-encoding。
+    assert_eq!(
+        request.headers.get("accept"),
+        Some(&HeaderValue::from_static("text/event-stream"))
+    );
+    assert_eq!(
+        request.headers.get("version"),
+        Some(&HeaderValue::from_static("0.159.2"))
+    );
+    assert_eq!(request.headers.get_all("version").iter().count(), 1);
+    assert!(request.headers.get("content-encoding").is_none());
+
+    // 3. 认证注入闭包不变（与 v1 同一段代码）。
+    assert_eq!(
+        request.headers.get(http::header::AUTHORIZATION),
+        Some(&HeaderValue::from_static("Bearer tok"))
+    );
+    assert_eq!(
+        request.headers.get("ChatGPT-Account-ID"),
+        Some(&HeaderValue::from_static("acct"))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn responses_client_stream_raw_passthrough_does_not_synthesize_accept() -> Result<()> {
+    // v3 下 ctd 不做 header 决策：Go 没给 accept 时 ctd 绝不代补（v1 的
+    // stream_raw 会在 configure 闭包里写 accept: text/event-stream）。
+    let state = RecordingState::default();
+    let client = ResponsesClient::new(
+        RecordingTransport::new(state.clone()),
+        provider("chatgpt-bare"),
+        Arc::new(NoAuth),
+    );
+    let _ = client
+        .stream_raw_passthrough(Bytes::from_static(b"{}"), HeaderMap::new())
+        .await?;
+    let requests = state.take_stream_requests();
+    assert!(
+        requests[0].headers.get("accept").is_none(),
+        "v3 不得代补 accept：缺失必须由调用方在发出前 fail closed"
+    );
+    assert!(requests[0].headers.get("content-type").is_none());
+    Ok(())
+}
+
+#[tokio::test]
 async fn responses_client_stream_request_preserves_item_ids() -> Result<()> {
     let state = RecordingState::default();
     let transport = RecordingTransport::new(state.clone());

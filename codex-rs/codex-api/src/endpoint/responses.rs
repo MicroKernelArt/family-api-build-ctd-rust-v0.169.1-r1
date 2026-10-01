@@ -10,8 +10,10 @@ use crate::requests::headers::subagent_header;
 use crate::requests::Compression;
 use crate::sse::spawn_response_stream;
 use crate::telemetry::SseTelemetry;
+use bytes::Bytes;
 use codex_client::EncodedJsonBody;
 use codex_client::HttpTransport;
+use codex_client::RequestBody;
 use codex_client::RequestCompression;
 use codex_client::RequestTelemetry;
 use codex_protocol::protocol::SessionSource;
@@ -166,6 +168,67 @@ impl<T: HttpTransport> ResponsesClient<T> {
                     );
                     req.compression = request_compression;
                 },
+            )
+            .await
+    }
+
+    /// v3（hookpoint=v3）raw 透传：body 是 Go 交付的**最终字节**，
+    /// headers 是 Go 交付的**完整出站头集**，ctd 原样发出
+    /// （docs/20 §3.5 / §4.3 M2）。
+    ///
+    /// ★ 与 [`Self::stream_raw`] 的关键差异：
+    /// - body 走 [`RequestBody::Raw`] 且 compression 恒为
+    ///   [`RequestCompression::None`]。该组合下 `prepare_body_for_send`
+    ///   只把 headers 与 body 原样 clone——**既不写也不改**
+    ///   `content-encoding` / `content-type`（见
+    ///   `codex-http-client/src/request.rs` 的 `Raw` 分支）；
+    /// - **不经 `configure` 闭包**：v3 下 ctd 不写 `accept`、不设
+    ///   compression。`accept` / `content-type` 由 Go 交付，缺失由调用方
+    ///   在发出前 fail closed。
+    ///
+    /// 由此得到 §3.3 R1/R3 的结构性保证：**ctd 不可能"压了没写头"或
+    /// "写了头没压"**——`Raw` + 压缩会直接报错，而这里压缩恒为 `None`。
+    /// 认证注入、retry、SSE 转发与 v1 共用同一 `EndpointSession` 闭包。
+    #[instrument(
+        name = "responses.stream_raw_passthrough",
+        level = "info",
+        skip_all,
+        fields(
+            transport = "responses_http",
+            http.method = "POST",
+            api.path = "responses"
+        )
+    )]
+    pub async fn stream_raw_passthrough(
+        &self,
+        body: Bytes,
+        extra_headers: HeaderMap,
+    ) -> Result<codex_client::RawRetryOutcome<codex_client::StreamResponse>, ApiError> {
+        self.session
+            .stream_raw_bytes_with(
+                Method::POST,
+                "/responses",
+                extra_headers,
+                Some(RequestBody::Raw(body)),
+            )
+            .await
+    }
+
+    /// v3 raw compact 透传（与 [`Self::stream_raw_passthrough`] 同构）：
+    /// body 原样、headers 原样、timeout 显式传入。
+    pub async fn execute_raw_passthrough(
+        &self,
+        body: Bytes,
+        extra_headers: HeaderMap,
+        request_timeout: Duration,
+    ) -> Result<codex_client::RawRetryOutcome<codex_client::Response>, ApiError> {
+        self.session
+            .execute_raw_bytes_with(
+                Method::POST,
+                "/responses/compact",
+                extra_headers,
+                Some(RequestBody::Raw(body)),
+                Some(request_timeout),
             )
             .await
     }
