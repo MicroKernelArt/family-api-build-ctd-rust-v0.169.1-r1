@@ -8,7 +8,7 @@
 //! |---|---|---|
 //! | headers | Go 交付白名单**子集**，ctd 自派生其余 | Go 交付白名单**全集**，ctd 只做白名单过滤 |
 //! | body | ctd 解析 → 改投影 → `serde_json` 重编码 | Go 的**最终字节**，ctd 不解析不改写 |
-//! | `content-encoding` | ctd 权威，恒 identity | **Go 权威**，ctd 只校验 |
+//! | `content-encoding` | ctd 权威，恒 `zstd`（官方形态） | **Go 权威**，ctd 只校验 |
 //!
 //! ★ 边界处理（认证注入 / 超时 / 重试 / SSE 转发 / 审计）全部保留，且由
 //! 与 v1 **同一段**代码承担：认证注入在

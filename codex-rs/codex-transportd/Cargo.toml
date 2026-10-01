@@ -54,6 +54,8 @@ url = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 uuid = { workspace = true }
+# 出站 body 现为 zstd 压缩体（官方形态）；出站契约测试必须能解压核对。
+zstd = { workspace = true }
 
 [build-dependencies]
 sha2 = "0.10"

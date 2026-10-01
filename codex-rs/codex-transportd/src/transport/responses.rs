@@ -3,6 +3,8 @@
 //! 复用官方 `ResponsesClient::stream_raw`（fork patch），返回上游
 //! status/headers/byte stream；SSE 不 parse 再重组，不全量缓冲。
 
+use std::collections::BTreeMap;
+
 use bytes::Bytes;
 use futures::StreamExt;
 use http::HeaderMap;
@@ -49,6 +51,103 @@ pub fn compatibility_headers(projection: &codex_core::CodexResponsesMetadata) ->
         headers.insert(name, value);
     }
     headers
+}
+
+/// v1 出站「ctd 自派生元数据头」的**官方确定性构造序**。
+///
+/// 官方 0.159.2 的 HTTP POST 头序列是**强不变量**（5 组采集 × 90 条 POST
+/// 零变异，`docs/21 §0.3`）：
+/// `version` → **本表 8 头** → `accept` → `content-encoding` → `content-type`
+/// → `authorization` → `chatgpt-account-id` → `originator` → `user-agent`
+/// → `host` → `content-length`。
+///
+/// 该序列直接来自官方的插入序：`Provider::build_request`（provider 头）→
+/// `EndpointSession::make_request` 的 `headers.extend(extra_headers)` →
+/// `configure` 闭包（`accept`）→ 压缩路径（`content-encoding` /
+/// `content-type`）→ `auth.apply_auth`（凭据）→ reqwest client 默认头
+/// （`originator` / `user-agent`）→ hyper 传输头（`host` / `content-length`）。
+///
+/// ★ 本表必须按官方构造序写死：改用 `BTreeMap` / `HashMap` 迭代序会得到
+/// **字母序**，那是 `docs/22 §2` 实测的旧 v1 头序，与官方不符。
+///
+/// 不在本表的头由各自权威按同一顺序承载：`version` = provider，
+/// `originator` / `user-agent` = [`V1_TRAILING_HEADER_ORDER`]，
+/// `accept` / `content-encoding` / `content-type` = `configure` 与压缩路径，
+/// `authorization` / `chatgpt-account-id` = auth，`host` / `content-length`
+/// = 传输栈。
+pub const V1_METADATA_HEADER_ORDER: &[&str] = &[
+    "x-codex-beta-features",
+    "x-codex-window-id",
+    "x-codex-turn-metadata",
+    "x-openai-internal-codex-responses-lite",
+    "x-codex-routing-hint",
+    "x-client-request-id",
+    "session-id",
+    "thread-id",
+];
+
+/// 官方交由 **reqwest client 默认头**承载的两个头，位置在 auth 之后、传输头
+/// 之前（官方序列第 15/16 位）。v1 由承载通道拿到它们，必须复用同一注入点
+/// （[`official_adapter::official_auth_with_trailing_headers`]）才能落在官方位置。
+pub const V1_TRAILING_HEADER_ORDER: &[&str] = &["originator", "user-agent"];
+
+/// v1 出站头投影：按官方构造序组装「ctd 自派生」段，并把官方由 client 默认头
+/// 承载的 [`V1_TRAILING_HEADER_ORDER`] 单独交出。
+///
+/// 值来源与优先级与旧实现逐字等价（投影/会话快照 < 承载通道）：
+/// `session-id` / `thread-id` 来自会话快照，`x-codex-window-id` /
+/// `x-codex-turn-metadata` 来自官方投影，其余来自承载通道；承载值覆盖同名的
+/// 本地派生值（`HeaderMap::insert` 的替换语义）。
+///
+/// 未列入两张表的头（如 `openai-beta`）按**确定性键序**追加在自派生段之后——
+/// 官方 HTTP POST 不发这些头（`docs/20 §3.2`），此处只保证「不丢、不乱序」。
+pub fn outbound_headers(
+    ctx: &RequestContext,
+    projection: &codex_core::CodexResponsesMetadata,
+) -> (HeaderMap, HeaderMap) {
+    let mut merged: BTreeMap<String, HeaderValue> = BTreeMap::new();
+    for source in [
+        session_headers(ctx),
+        compatibility_headers(projection),
+        ctx.carried_header_map(),
+    ] {
+        for (name, value) in source.iter() {
+            merged.insert(name.as_str().to_string(), value.clone());
+        }
+    }
+
+    let mut headers = HeaderMap::new();
+    for name in V1_METADATA_HEADER_ORDER {
+        if let Some(value) = merged.remove(*name) {
+            headers.insert(http::header::HeaderName::from_static(name), value);
+        }
+    }
+
+    // `originator` / `user-agent`：官方位置在 auth 之后 ⇒ 交给尾段注入点。
+    // UA 形状在此归一（版本段取单一来源、按 originator 补官方尾后缀）。
+    let originator = merged.remove("originator");
+    let originator_str = originator
+        .as_ref()
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    let user_agent = official_adapter::canonical_user_agent(
+        merged.remove("user-agent"),
+        originator_str.as_deref(),
+    );
+    let mut trailing = HeaderMap::new();
+    if let Some(value) = originator {
+        trailing.insert(http::header::HeaderName::from_static("originator"), value);
+    }
+    if let Ok(value) = HeaderValue::from_str(&user_agent) {
+        trailing.insert(http::header::USER_AGENT, value);
+    }
+
+    for (name, value) in merged {
+        if let Ok(name) = http::header::HeaderName::from_bytes(name.as_bytes()) {
+            headers.insert(name, value);
+        }
+    }
+    (headers, trailing)
 }
 
 /// 执行 Responses HTTP/SSE 原始请求。
@@ -113,17 +212,19 @@ pub async fn execute_responses_raw(
     // canonical 位对齐：官方 HTTP 把 turn-metadata 同时放在 body client_metadata
     // 与 compatibility header；projection 由 snapshot 合成拿不到该值，用承载值补。
     metadata::inject_carried_turn_metadata(&mut obj, &ctx.carried_headers);
+    // 官方 `client_metadata` 中承载通道**无权交付**（reserved）而官方必发的键：
+    // `turn_id` / `root_turn_id`（由承载的 turn-metadata 派生）+
+    // `guardian_credits_requested` / `mcp_attribution`（由 ctd 的会话模型派生）。
+    metadata::inject_derived_client_metadata(&mut obj, ctx);
 
-    // 3. extra headers（空白 HeaderMap 起步；originator/UA 由 client 默认头提供）。
-    let mut headers = session_headers(ctx);
-    headers.extend(compatibility_headers(&projection));
-    // 承载头（FR-004 唯一 header 通道）：Go 侧已按账号身份 scope 完成的
-    // 官方 x-codex-* 元数据原样注入并覆盖本地投影，使 rust_sidecar 出站
-    // 与 R-Go 直连逐头一致。凭据头（authorization / chatgpt-account-id /
-    // cookie）在解析期已 fail closed，不在承载集合内；本地必需头
-    // （host/content-length/accept/content-type）与 authorization /
-    // chatgpt-account-id 仍由官方 client 与 BearerAuthProvider 自写。
-    headers.extend(ctx.carried_header_map());
+    // 3. extra headers：按官方**确定性构造序**组装（不是字母序）。
+    //    `originator` / `user-agent` 由官方 client 默认头承载，位置在 auth
+    //    之后 ⇒ 单独交出，见 `V1_TRAILING_HEADER_ORDER`。
+    //    凭据头（authorization / chatgpt-account-id / cookie）在解析期已 fail
+    //    closed，不在承载集合内；本地必需头（host/content-length/accept/
+    //    content-type/content-encoding）与 authorization / chatgpt-account-id
+    //    仍由官方 client、压缩路径与 BearerAuthProvider 自写。
+    let (headers, trailing_headers) = outbound_headers(ctx, &projection);
 
     // capture 旁路（capture-r1）：请求体校验通过后、发上游前入队
     // （设计 §6.3）。白名单不匹配 = None，零成本原路径。句柄在上游失败
@@ -143,7 +244,7 @@ pub async fn execute_responses_raw(
         Operation::Responses,
     )
     .await?;
-    let auth = official_adapter::official_auth(ctx);
+    let auth = official_adapter::official_auth_with_trailing_headers(ctx, trailing_headers);
     let provider = official_adapter::chatgpt_provider();
     let api_client =
         codex_api::ResponsesClient::new(official_adapter::transport_for(client), provider, auth);
@@ -151,8 +252,15 @@ pub async fn execute_responses_raw(
     // 5. 官方 raw stream（复用 EndpointSession/auth/compression/retry）。
     // R6（R-TRANSPORT-001）：terminal non-2xx 原样保留（不再映射为本地
     // 错误→502），attempt 次数来自官方 retry 循环的真实值。
+    //
+    // ⑤ `Compression::Zstd`：官方 0.159.2 的出站 body 是 zstd 压缩体
+    // （`content-encoding: zstd`，magic `28b52ffd`，`docs/21 §5.1`）。压缩与
+    // 头的写入由同一权威（`http-client/src/request.rs::prepare_encoded_json`）
+    // 完成 ⇒ ctd 结构上不可能「压了没写头」或「写了头没压」；`content-length`
+    // 由传输栈按**压缩后**字节数生成。压缩后的字节存进 `EncodedJsonBody`
+    // （`prepared = true`），retry attempt 复用同一份，不重复压缩。
     let outcome = api_client
-        .stream_raw(obj.into(), headers, codex_api::Compression::None, None)
+        .stream_raw(obj.into(), headers, codex_api::Compression::Zstd, None)
         .await
         .map_err(|err| map_api_error(err, "responses"))?;
     let stream = outcome.value;
@@ -270,8 +378,60 @@ fn _method_probe() -> Method {
 
 #[cfg(test)]
 mod tests {
+    use super::V1_METADATA_HEADER_ORDER;
+    use super::V1_TRAILING_HEADER_ORDER;
+    use super::outbound_headers;
     use super::session_headers;
     use codex_core::CodexResponsesMetadata;
+    use std::collections::BTreeMap;
+
+    /// 生产形态的承载集合（Go `codex_transport_sidecar.go` 写入的 11 个白名单头
+    /// 中，v1 responses 会真的出现的那批）+ 一个未列入官方 18 头的 `openai-beta`。
+    fn carried_fixture() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("x-codex-beta-features".to_string(), "remote_compaction_v2".to_string()),
+            (
+                "x-codex-window-id".to_string(),
+                "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+            ),
+            (
+                "x-codex-turn-metadata".to_string(),
+                r#"{"turn_id":"0198f2b0-0000-7000-8000-000000000003","root_turn_id":"0198f2b0-0000-7000-8000-000000000003","request_kind":"turn"}"#
+                    .to_string(),
+            ),
+            (
+                "x-openai-internal-codex-responses-lite".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "x-codex-routing-hint".to_string(),
+                "model=gpt-5.6-sol".to_string(),
+            ),
+            (
+                "x-client-request-id".to_string(),
+                "0198f2b0-0000-7000-8000-000000000001".to_string(),
+            ),
+            ("originator".to_string(), "codex-tui".to_string()),
+            (
+                "user-agent".to_string(),
+                "codex-tui/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color".to_string(),
+            ),
+            (
+                "openai-beta".to_string(),
+                "responses_multi_agent=2026-01-01".to_string(),
+            ),
+        ])
+    }
+
+    fn projection() -> CodexResponsesMetadata {
+        CodexResponsesMetadata::try_for_transport(
+            "installation-1".to_string(),
+            "0198f2b0-0000-7000-8000-000000000001".to_string(),
+            "0198f2b0-0000-7000-8000-000000000002".to_string(),
+            "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+        )
+        .expect("valid projection")
+    }
 
     #[test]
     fn projection_roundtrips_official_metadata() {
@@ -295,6 +455,73 @@ mod tests {
     }
 
     #[test]
+    fn metadata_headers_follow_official_construction_order_not_alphabetical() {
+        // ① 官方 0.159.2 的头名序列是强不变量（docs/21 §0.3：5 组采集 × 90 条
+        // POST 零变异）。ctd 自派生段必须是官方构造序；字母序（BTreeMap 迭代序）
+        // 正是 docs/22 §2 实测的旧 v1 头序。
+        let ctx = crate::contract::RequestContext {
+            session: Some(crate::contract::headers::SessionSnapshot {
+                session_id: "0198f2b0-0000-7000-8000-000000000001".to_string(),
+                thread_id: "0198f2b0-0000-7000-8000-000000000002".to_string(),
+                window_id: "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+            }),
+            carried_headers: carried_fixture(),
+            ..Default::default()
+        };
+        let (headers, trailing) = outbound_headers(&ctx, &projection());
+
+        // 官方序列第 2–9 位，逐位相等。
+        let observed: Vec<&str> = headers.keys().map(|name| name.as_str()).collect();
+        assert_eq!(
+            &observed[..V1_METADATA_HEADER_ORDER.len()],
+            V1_METADATA_HEADER_ORDER,
+            "ctd 自派生头必须按官方构造序排列"
+        );
+        // 反证：字母序不是官方序。
+        let mut alphabetical = observed.clone();
+        alphabetical.sort_unstable();
+        assert_ne!(observed, alphabetical, "官方构造序不得退化为字母序");
+
+        // `originator` / `user-agent` 必须离开自派生段（官方位置在 auth 之后）。
+        assert!(headers.get("originator").is_none());
+        assert!(headers.get("user-agent").is_none());
+        let trailing_order: Vec<&str> = trailing.keys().map(|name| name.as_str()).collect();
+        assert_eq!(trailing_order, V1_TRAILING_HEADER_ORDER.to_vec());
+
+        // 未列入官方 18 头的承载头不丢，且不插进官方前缀。
+        assert_eq!(headers.get("openai-beta").unwrap(), "responses_multi_agent=2026-01-01");
+        assert_eq!(observed.last().copied(), Some("openai-beta"));
+    }
+
+    #[test]
+    fn carried_values_override_local_projection() {
+        // 承载通道是 FR-004 的唯一 header 通道：同名键覆盖本地派生值。
+        let ctx = crate::contract::RequestContext {
+            session: Some(crate::contract::headers::SessionSnapshot {
+                session_id: "0198f2b0-0000-7000-8000-000000000009".to_string(),
+                thread_id: "0198f2b0-0000-7000-8000-00000000000a".to_string(),
+                window_id: "0198f2b0-0000-7000-8000-00000000000a:1".to_string(),
+            }),
+            carried_headers: BTreeMap::from([(
+                "x-codex-beta-features".to_string(),
+                "carried_beta".to_string(),
+            )]),
+            ..Default::default()
+        };
+        let (headers, _) = outbound_headers(&ctx, &projection());
+        assert_eq!(headers.get("x-codex-beta-features").unwrap(), "carried_beta");
+        // 会话快照仍是 session-id / thread-id 的来源（承载未提供时）。
+        assert_eq!(
+            headers.get("session-id").unwrap(),
+            "0198f2b0-0000-7000-8000-000000000009"
+        );
+        assert_eq!(
+            headers.get("thread-id").unwrap(),
+            "0198f2b0-0000-7000-8000-00000000000a"
+        );
+    }
+
+    #[test]
     fn upstream_headers_never_contain_internal_namespace() {
         // T3 负向（红线）：x-ctd-user-id 等内部 header 绝不进入上游投影。
         // session_headers 由空白 HeaderMap 构造，仅官方 session-id/thread-id。
@@ -310,6 +537,19 @@ mod tests {
         let upstream = session_headers(&ctx);
         assert!(upstream.get("x-ctd-user-id").is_none());
         for (name, _) in upstream.iter() {
+            assert!(
+                !name.as_str().starts_with("x-ctd-"),
+                "internal header {name} leaked to upstream projection"
+            );
+        }
+        // 投影全量（含承载段与尾段）同样不得出现内部命名空间。
+        let ctx = crate::contract::RequestContext {
+            carried_headers: carried_fixture(),
+            user_id: Some("3".to_string()),
+            ..ctx
+        };
+        let (headers, trailing) = outbound_headers(&ctx, &projection());
+        for name in headers.keys().chain(trailing.keys()) {
             assert!(
                 !name.as_str().starts_with("x-ctd-"),
                 "internal header {name} leaked to upstream projection"

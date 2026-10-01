@@ -239,6 +239,72 @@ pub fn inject_carried_turn_metadata(
     );
 }
 
+/// 官方 `client_metadata` 中承载通道**无权交付**（[`RESERVED_METADATA_KEYS`]
+/// 拒绝）而官方必发的键名。
+pub const TURN_ID_KEY: &str = "turn_id";
+pub const ROOT_TURN_ID_KEY: &str = "root_turn_id";
+pub const GUARDIAN_CREDITS_REQUESTED_KEY: &str = "guardian_credits_requested";
+pub const MCP_ATTRIBUTION_KEY: &str = "mcp_attribution";
+
+/// 官方「无 MCP 归因」的序列化常量
+/// （`codex_protocol::mcp::McpAttribution::default()`，
+/// `protocol/src/mcp.rs:67-72,115-126`：`status = none`，`sources` 为空且
+/// `skip_serializing_if` ⇒ 只剩 `{"status":"none"}`；`docs/21 §5.3` 实测同值）。
+pub const MCP_ATTRIBUTION_NONE: &str = r#"{"status":"none"}"#;
+
+/// 补齐官方 `client_metadata` 中由 ctd 派生、承载通道无权交付的 4 个键
+/// （`docs/22 §6` 项 #8/#10/#12/#14/#16）。
+///
+/// 各键的真值来源：
+/// - `turn_id` / `root_turn_id`：**派生**。官方 I7 要求它们与请求头
+///   `x-codex-turn-metadata` 同源（`docs/21 §6`）；承载的 turn-metadata 就是
+///   该权威值（`inject_carried_turn_metadata` 已写入 canonical 位），此处直接
+///   取其中同名字段。缺失该头（或其中不含对应键，如 `request_kind=prewarm`）
+///   ⇒ 不补，保持与官方「无该字段就不发」一致。
+/// - `guardian_credits_requested`：**派生**。官方谓词
+///   （`core/src/client.rs:1126-1158` `set_guardian_metadata`）为
+///   「非 guardian reviewer ∧ 非 basic session source ∧ ChatGPT 凭据 ∧
+///   codex 后端 ∧ provider 支持 codex 后端路由」。v1 下 provider 恒为
+///   chatgpt codex base（`CHATGPT_CODEX_BASE_URL`），auth 恒为
+///   Bearer + ChatGPT-Account-ID，guardian reviewer 标记头
+///   （`x-codex-guardian`）不在承载白名单内 ⇒ 恒 false ⇒ 谓词收敛为
+///   「是否 ChatGPT 账号凭据」。
+/// - `mcp_attribution`：**常量近似**。官方值是客户端会话的累积 MCP 归因，
+///   sidecar 侧无该状态（Go 侧同样无，`docs/19 §17`）⇒ 按官方「无 MCP 结果」
+///   形态写入。★ 已登记的近似：若客户端本次会话用过 MCP，该键会与真实归因
+///   不符（该键 body-only、model-invisible）。
+pub fn inject_derived_client_metadata(
+    obj: &mut Map<String, Value>,
+    ctx: &crate::contract::RequestContext,
+) {
+    let Some(Value::Object(metadata)) = obj.get_mut("client_metadata") else {
+        return;
+    };
+    let turn_metadata = metadata
+        .get(TURN_METADATA_CLIENT_METADATA_KEY)
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    if let Some(raw) = turn_metadata
+        && let Ok(Value::Object(turn_metadata)) = serde_json::from_str::<Value>(&raw)
+    {
+        for key in [TURN_ID_KEY, ROOT_TURN_ID_KEY] {
+            if let Some(value @ Value::String(_)) = turn_metadata.get(key) {
+                metadata.insert(key.to_string(), value.clone());
+            }
+        }
+    }
+    if ctx.chatgpt_account_id.is_some() {
+        metadata.insert(
+            GUARDIAN_CREDITS_REQUESTED_KEY.to_string(),
+            Value::String("true".to_string()),
+        );
+    }
+    metadata.insert(
+        MCP_ATTRIBUTION_KEY.to_string(),
+        Value::String(MCP_ATTRIBUTION_NONE.to_string()),
+    );
+}
+
 /// 构造官方 metadata 投影（UUIDv7 校验在入口完成）。
 pub fn build_projection(
     installation_id: &str,
@@ -357,6 +423,102 @@ mod tests {
         let metadata = obj.get("client_metadata").unwrap().as_object().unwrap();
         assert_eq!(metadata.get("session_id").unwrap(), "s");
         assert_eq!(metadata.get("custom").unwrap(), "x");
+    }
+
+    /// 官方 exec 0.159.2 首条 POST 的 `client_metadata` 键集合
+    /// （`baseline/official-1592.json:body.client_metadata_keys`）。
+    const OFFICIAL_CLIENT_METADATA_KEYS: [&str; 9] = [
+        "guardian_credits_requested",
+        "mcp_attribution",
+        "root_turn_id",
+        "session_id",
+        "thread_id",
+        "turn_id",
+        "x-codex-installation-id",
+        "x-codex-turn-metadata",
+        "x-codex-window-id",
+    ];
+
+    fn derived_fixture_ctx(chatgpt: bool) -> crate::contract::RequestContext {
+        crate::contract::RequestContext {
+            chatgpt_account_id: chatgpt
+                .then(|| crate::redaction::SecretString::new("acc-1")),
+            ..Default::default()
+        }
+    }
+
+    /// 复刻 `execute_responses_raw` 的 body 组装链（投影 → 承载 turn-metadata
+    /// → 派生键），断言键集合与官方 9 键逐字相等。
+    fn assembled_client_metadata(
+        carried: &std::collections::BTreeMap<String, String>,
+        chatgpt: bool,
+    ) -> Value {
+        let session = crate::contract::headers::SessionSnapshot {
+            session_id: "0198f2b0-0000-7000-8000-000000000001".to_string(),
+            thread_id: "0198f2b0-0000-7000-8000-000000000002".to_string(),
+            window_id: "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+        };
+        let projection = build_projection("installation-1", &session).expect("projection");
+        let mut obj = serde_json::Map::new();
+        obj.insert("model".into(), Value::String("gpt-5.6-sol".into()));
+        inject_official_client_metadata(
+            &mut obj,
+            Vec::new(),
+            projection.client_metadata(/*include_internal*/ true),
+        );
+        inject_carried_turn_metadata(&mut obj, carried);
+        inject_derived_client_metadata(&mut obj, &derived_fixture_ctx(chatgpt));
+        obj.get("client_metadata").cloned().expect("client_metadata")
+    }
+
+    #[test]
+    fn derived_keys_complete_official_client_metadata_key_set() {
+        let carried = std::collections::BTreeMap::from([(
+            TURN_METADATA_CLIENT_METADATA_KEY.to_string(),
+            r#"{"request_kind":"turn","turn_id":"0198f2b0-0000-7000-8000-000000000003","root_turn_id":"0198f2b0-0000-7000-8000-000000000003","session_id":"0198f2b0-0000-7000-8000-000000000001"}"#
+                .to_string(),
+        )]);
+        let metadata = assembled_client_metadata(&carried, /*chatgpt*/ true);
+        let mut keys: Vec<&str> = metadata.as_object().unwrap().keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        let mut expected = OFFICIAL_CLIENT_METADATA_KEYS.to_vec();
+        expected.sort_unstable();
+        assert_eq!(keys, expected);
+        assert_eq!(metadata["guardian_credits_requested"], "true");
+        assert_eq!(metadata["mcp_attribution"], r#"{"status":"none"}"#);
+        assert_eq!(metadata["turn_id"], "0198f2b0-0000-7000-8000-000000000003");
+        assert_eq!(
+            metadata["root_turn_id"],
+            "0198f2b0-0000-7000-8000-000000000003"
+        );
+    }
+
+    #[test]
+    fn turn_ids_are_derived_from_the_carried_turn_metadata() {
+        // 官方 I7：`client_metadata.{turn_id,root_turn_id}` 必须与请求头
+        // `x-codex-turn-metadata` 同源（docs/21 §6）。
+        let carried = std::collections::BTreeMap::from([(
+            TURN_METADATA_CLIENT_METADATA_KEY.to_string(),
+            r#"{"request_kind":"turn","turn_id":"turn-a","root_turn_id":"root-a"}"#.to_string(),
+        )]);
+        let metadata = assembled_client_metadata(&carried, true);
+        assert_eq!(metadata["turn_id"], "turn-a");
+        assert_eq!(metadata["root_turn_id"], "root-a");
+
+        // 无承载 turn-metadata（或其中不含该字段，如 prewarm）⇒ 不补，
+        // 与官方「无该字段就不发」一致。
+        let metadata = assembled_client_metadata(&Default::default(), true);
+        assert!(metadata.get("turn_id").is_none());
+        assert!(metadata.get("root_turn_id").is_none());
+    }
+
+    #[test]
+    fn guardian_credits_follows_the_official_chatgpt_auth_predicate() {
+        // 官方 `set_guardian_metadata` 要求 ChatGPT 凭据（core/src/client.rs:1126-1158）。
+        let chatgpt = assembled_client_metadata(&Default::default(), /*chatgpt*/ true);
+        assert_eq!(chatgpt["guardian_credits_requested"], "true");
+        let api_key = assembled_client_metadata(&Default::default(), /*chatgpt*/ false);
+        assert!(api_key.get("guardian_credits_requested").is_none());
     }
 }
 

@@ -22,6 +22,8 @@ use codex_http_client::build_reqwest_client_for_explicit_route;
 use codex_http_client::with_chatgpt_cloudflare_cookie_store;
 use codex_model_provider::BearerAuthProvider;
 use http::HeaderMap;
+use http::HeaderValue;
+use http::header::Entry;
 
 use crate::contract::ProxyKind;
 use crate::contract::error::ErrorClass;
@@ -115,10 +117,20 @@ pub fn wham_provider() -> Provider {
     }
 }
 
+/// ctd 出站 `version` 与 UA 版本段的**单一来源**。
+///
+/// `version` 请求头（[`official_version_header`]）与 `user-agent` 的
+/// 客户端段/尾后缀（[`canonical_user_agent`]）都必须读它，禁止各自写字面量
+/// 或各自读 `env!`——否则「头说 0.159.2、UA 说 0.159.0」这类同源漂移会重现
+/// （`docs/22 §6` 项 #4）。
+pub fn codex_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
 /// 官方 `version` header（与 `create_openai_provider` 相同）。
 fn official_version_header() -> HeaderMap {
     let mut headers = HeaderMap::new();
-    if let Ok(value) = http::HeaderValue::from_str(env!("CARGO_PKG_VERSION")) {
+    if let Ok(value) = http::HeaderValue::from_str(codex_version()) {
         headers.insert("version", value);
     }
     headers
@@ -217,6 +229,130 @@ pub fn official_auth(ctx: &crate::contract::RequestContext) -> SharedAuthProvide
     })
 }
 
+/// v1 专用 auth 装饰器：在内层 auth 之后，按官方位置注入
+/// `originator` / `user-agent`。
+///
+/// ★ 为什么不能当普通请求头注入：官方把这两个头交给 **`reqwest::Client`
+/// 默认头**承载，reqwest 在 `execute_request` 里对默认头做
+/// 「按序插入、**不覆盖**已存在的同名头」
+/// （`reqwest-0.12.28/src/async_impl/client.rs:2591-2597`），因此它们落在
+/// `authorization` / `chatgpt-account-id` **之后**、`host` / `content-length`
+/// **之前**（官方 0.159.2 出站序列第 15/16 位）。v1 的承载通道把这两个值
+/// 交给 ctd，若在 `extra_headers` 阶段注入就会落到 auth 之前，头序立刻偏离
+/// 官方。这里复用官方**同一个注入点**复刻该位置，语义与 reqwest 默认头逐字
+/// 一致：仅当目标头不存在时写入。
+///
+/// 作用域：只有 v1 responses 路径构造它（[`official_auth`] 本身不变），
+/// v3 与其它 operation 的头集/头序不受影响。
+pub struct TrailingHeaderAuth {
+    inner: SharedAuthProvider,
+    trailing: HeaderMap,
+}
+
+impl codex_api::AuthProvider for TrailingHeaderAuth {
+    fn add_auth_headers(&self, headers: &mut HeaderMap) {
+        // 遥测（`codex_api::auth_header_telemetry`）必须看到与出站一致的 auth 头。
+        self.inner.add_auth_headers(headers);
+    }
+
+    fn apply_auth(&self, request: codex_client::Request) -> codex_api::AuthProviderFuture<'_> {
+        Box::pin(async move {
+            let mut request = self.inner.apply_auth(request).await?;
+            for (name, value) in self.trailing.iter() {
+                if let Entry::Vacant(entry) = request.headers.entry(name) {
+                    entry.insert(value.clone());
+                }
+            }
+            Ok(request)
+        })
+    }
+}
+
+/// 内层官方 auth + 官方位置的尾段头（v1 responses 专用）。
+pub fn official_auth_with_trailing_headers(
+    ctx: &crate::contract::RequestContext,
+    trailing: HeaderMap,
+) -> SharedAuthProvider {
+    Arc::new(TrailingHeaderAuth {
+        inner: official_auth(ctx),
+        trailing,
+    })
+}
+
+/// 官方 UA 形态（`docs/21 §3.1` 第 16 行）：
+/// `<client>/<ver> (<OS> <osver>; <arch>) <TERM-program>/<ver>[ (<client>; <ver>)]`
+///
+/// 两条官方规则被复刻：
+/// 1. **版本段一律取 [`codex_version`]**（与 `version` 请求头同源）——
+///    承载通道带来的是客户端自报版本（如 `0.159.0`），与 `version` 头不同源；
+/// 2. **尾后缀 `(<client>; <ver>)` 的 client 段 == `originator`**。官方后缀
+///    由 `USER_AGENT_SUFFIX` 产生，来源是客户端自报名
+///    （`app-server/src/request_processors/initialize_processor.rs:130`
+///    `format!("{name}; {version}")`），且**仅当该名不在
+///    `NON_ORIGINATING_CLIENT_NAMES`（`codex_app_server_daemon` / `codex-backend`）
+///    内**才设置；此时 `originator` 也等于该名。可观测等价判据：
+///    `originator == DEFAULT_ORIGINATOR`（`codex_cli_rs`，即「无客户端自报名」）
+///    ⇒ 无尾后缀；否则有。该判据同时复现 exec / TUI / app-server 三形态实测
+///    （`docs/21 §0.0`：exec 有、TUI 有、app-server 无）。
+///
+/// 平台段与终端段**保持承载值原样**——官方口径下它们随环境变（`docs/21 §7.2`），
+/// 不是可比性缺陷。
+///
+/// `raw` 缺失时退回官方 generator [`codex_login::default_client::get_codex_user_agent`]，
+/// 使「承载了 originator 但没承载 UA」时客户端段与后缀仍与 originator 自洽。
+pub fn canonical_user_agent(raw: Option<HeaderValue>, originator: Option<&str>) -> String {
+    let version = codex_version();
+    let base = match raw.as_ref().and_then(|value| value.to_str().ok()) {
+        Some(raw) => raw.to_string(),
+        None => codex_login::default_client::get_codex_user_agent(),
+    };
+    let base = strip_user_agent_suffix(&base);
+    let ua_client = base
+        .split('/')
+        .next()
+        .unwrap_or(base)
+        .trim()
+        .to_string();
+    let client = originator
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(ua_client.as_str());
+    // 版本段之后的原文（平台段 + 终端段）；缺失则整段省略。
+    let rest = base
+        .split_once('/')
+        .and_then(|(_, tail)| tail.split_once(' '))
+        .map(|(_, rest)| rest.trim())
+        .unwrap_or("");
+    let suffix = if client == codex_login::default_client::DEFAULT_ORIGINATOR {
+        String::new()
+    } else {
+        format!(" ({client}; {version})")
+    };
+    if rest.is_empty() {
+        format!("{client}/{version}{suffix}")
+    } else {
+        format!("{client}/{version} {rest}{suffix}")
+    }
+}
+
+/// 去掉官方形态的尾后缀 `(<client>; <ver>)`（幂等：承载值已带后缀时不重复叠加）。
+///
+/// 只认「最后一个空格分隔组以 `(` 开头、以 `)` 结尾、内容含 `; `」**且不是**
+/// 紧跟版本段的 `(<OS> <osver>; <arch>)` 组——后者正是平台段，绝不能剥。
+fn strip_user_agent_suffix(user_agent: &str) -> &str {
+    let user_agent = user_agent.trim();
+    let Some(first_space) = user_agent.find(' ') else {
+        return user_agent;
+    };
+    let Some(open) = user_agent.rfind(" (") else {
+        return user_agent;
+    };
+    if open == first_space || !user_agent.ends_with(')') || !user_agent[open + 1..].contains("; ") {
+        return user_agent;
+    }
+    user_agent[..open].trim_end()
+}
+
 /// ReqwestTransport 包装（复用池化 client）。
 pub fn transport_for(client: reqwest::Client) -> ReqwestTransport {
     ReqwestTransport::new(client)
@@ -290,6 +426,80 @@ mod tests {
         let mut merged = chatgpt_provider_bare().headers.clone();
         merged.extend(go_headers);
         assert_eq!(merged.get("version").unwrap(), "0.159.2");
+    }
+
+    /// `version` 请求头的实际出站值——UA 版本段必须与它同源。
+    fn outbound_version_header() -> String {
+        official_version_header()
+            .get("version")
+            .expect("version header")
+            .to_str()
+            .expect("ascii")
+            .to_string()
+    }
+
+    #[test]
+    fn user_agent_takes_official_tui_shape() {
+        // ⑥ 参照官方 TUI 形态（baseline `reference_paths.secondary`）：承载值
+        // 的客户端段版本（0.159.0）与尾后缀都要归一，平台/终端段保持环境原样。
+        let version = outbound_version_header();
+        let carried = HeaderValue::from_static(
+            "codex-tui/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color",
+        );
+        assert_eq!(
+            canonical_user_agent(Some(carried), Some("codex-tui")),
+            format!("codex-tui/{version} (Ubuntu 22.4.0; x86_64) xterm-256color (codex-tui; {version})")
+        );
+    }
+
+    #[test]
+    fn user_agent_client_segment_and_suffix_share_one_source() {
+        // 客户端段版本与尾后缀版本必须同源于 `version` 请求头——这正是
+        // docs/22 §6 项 #4「版本段 0.159.0 vs 官方 0.159.2」的成因。
+        let version = outbound_version_header();
+        let carried =
+            HeaderValue::from_static("codex_exec/0.150.0 (Mac OS 15.5.0; arm64) WarpTerminal/v1");
+        let user_agent = canonical_user_agent(Some(carried), Some("codex_exec"));
+        assert!(
+            user_agent.starts_with(&format!("codex_exec/{version} ")),
+            "客户端段版本未与 version 头同源: {user_agent}"
+        );
+        assert!(
+            user_agent.ends_with(&format!("(codex_exec; {version})")),
+            "尾后缀版本未与 version 头同源: {user_agent}"
+        );
+    }
+
+    #[test]
+    fn user_agent_omits_suffix_for_default_originator() {
+        // 官方 app-server 形态（clientInfo.name 命中 NON_ORIGINATING_CLIENT_NAMES）
+        // 的 originator 保持默认值 ⇒ 官方 UA **无**尾后缀（docs/21 §0.0）。
+        let carried = HeaderValue::from_static(
+            "codex_cli_rs/0.150.0 (Mac OS 15.5.0; arm64) WarpTerminal/v1",
+        );
+        assert_eq!(
+            canonical_user_agent(Some(carried), Some("codex_cli_rs")),
+            format!(
+                "codex_cli_rs/{} (Mac OS 15.5.0; arm64) WarpTerminal/v1",
+                outbound_version_header()
+            )
+        );
+    }
+
+    #[test]
+    fn user_agent_suffix_strip_is_idempotent() {
+        // 承载值已带官方尾后缀时不重复叠加；平台段（紧跟版本段的括号组）绝不能被剥。
+        let already = HeaderValue::from_static(
+            "codex_exec/0.150.0 (Mac OS 15.5.0; arm64) WarpTerminal/v1 (codex_exec; 0.150.0)",
+        );
+        let once = canonical_user_agent(Some(already), Some("codex_exec"));
+        let twice = canonical_user_agent(
+            Some(HeaderValue::from_str(&once).expect("valid header")),
+            Some("codex_exec"),
+        );
+        assert_eq!(once, twice);
+        assert!(once.contains("(Mac OS 15.5.0; arm64)"), "平台段被误剥: {once}");
+        assert_eq!(once.matches(" (codex_exec; ").count(), 1);
     }
 
     #[test]
