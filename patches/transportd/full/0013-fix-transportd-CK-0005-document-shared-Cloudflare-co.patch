@@ -1,15 +1,16 @@
-From cc0fd9d0676d1b898093d01fb19fe700f355d93e Mon Sep 17 00:00:00 2001
+From d1045d62e305c5464f382b4a7fb5d36d8d69473d Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:00:19 +0800
-Subject: [PATCH 13/17] fix(transportd): CK-0005 document shared Cloudflare
+Subject: [PATCH 13/23] fix(transportd): CK-0005 document shared Cloudflare
  cookie jar
 
+(cherry picked from commit cc0fd9d0676d1b898093d01fb19fe700f355d93e)
 ---
  codex-rs/codex-transportd/src/transport/client_pool.rs | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/transport/client_pool.rs b/codex-rs/codex-transportd/src/transport/client_pool.rs
-index 03191faa26..166886da38 100644
+index 03191fa..166886d 100644
 --- a/codex-rs/codex-transportd/src/transport/client_pool.rs
 +++ b/codex-rs/codex-transportd/src/transport/client_pool.rs
 @@ -1,8 +1,10 @@

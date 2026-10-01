@@ -1,68 +1,84 @@
 schema: family-api/replay-line/v2
-line: replay0905-v0159
+line: replay0905-v0159-2
 repository: family-api-codex
-upstream_tag: rust-v0.159.0
-upstream_tag_object: 377f7f557a6bdea0f3a2d26d4d899c66db4789d0
-base_commit: 687a119f0fcaace47e1f1abcc77cec6c813fd6da
-source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
-release_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-expected_release_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
-commit_count: 17
+upstream_tag: rust-v0.159.2
+upstream_tag_object: 8b9fa496bbf2c47aebd62e85a080b9a522a455b5
+base_commit: ff6aec96948b70d94983af2641a6b67c94faeff5
+source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
+source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+release_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
+expected_release_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+commit_count: 23
 commits:
-  - commit: 12066620d4536cbbdacf71bea66692fe8c1572e1
-    tree: 1517d4f61646671d192b0ddb417838ad5cc28d3c
+  - commit: 86af8ae437d735cf195003e1d63bdcfc1640e389
+    tree: 95993bf5ffb29a67b7cc620f3d1d1c4d8ae7f549
     capability: transportd-crate-and-p1-planes
-  - commit: 49cde2c56bf56639d18c3a94d057f10147963c28
-    tree: b01d7d3b8a9ecce10b99b20ecabbbc94aaf3505f
+  - commit: d1a7705922c37fc214f9f23c837349b9e2830337
+    tree: 32052a33be805c979ce24bdef1837b0b5cf590b0
     capability: codex-api-raw-endpoint-adapters
-  - commit: 4027ab3d5883d56605d5476b40f3ef8c923d235d
-    tree: 6c8df13396954527e3c39ce9aeda2a7879dfcf83
+  - commit: d52c3ce4162c34983ea78da99cffe737b974fe22
+    tree: c8287e4273c02b7abd8fd72ded89c1e95773344a
     capability: http-client-raw-transport-and-explicit-route
-  - commit: 6581ca6873492a5cee087702792b3b3f5511bf3f
-    tree: 5374a4eb147f2d824caeff6385d56976836ff165
+  - commit: 21e22302e9e7da946bf9d4cd5d85cc7613712787
+    tree: 1b9a9334c923a0d6b69e954af26e4000932e1955
     capability: websocket-client-explicit-route
-  - commit: da3d82fbc21fb781ffe71b02896c39bc0e0054c2
-    tree: 4b94d1d2c87aff7e82be1d38063d7616f71b921a
+  - commit: 723806887dbea2dad48607dfd8d1b681369a7c39
+    tree: 8502c1f7cf31776f7e3a5e2dca4b46b3d429286e
     capability: core-transport-metadata-adapter
-  - commit: 5638c506fc6806fea207e58062155d4fdd9e3722
-    tree: 7c4dcd7bdc1081a31fc0c4cd8a232fa0413b2510
+  - commit: 5dad070e0ecdbf0e6723d5c43057031c772530ce
+    tree: c4d33821af181b8f67ec16c20194de2948e47b3c
     capability: codex-client-raw-retry-loop
-  - commit: 478a35ecf486e0902faa90b1673078b7bd8ac87b
-    tree: d33a34d49aa0672cb3e8ddcdd5f6ea1b5bba6893
+  - commit: 420574c218814e1884e421874937bb26cbf8936a
+    tree: ca938b8d146e81ffab2c54977ab2ddf538a56b50
     capability: login-auth-component-visibility
-  - commit: 148b34118050f2e2135b610ee3031612386cc171
-    tree: 790d4da055b07a5e050724f47cd76352a30c39d3
+  - commit: 5ab994bd792b3182374640a099d1def90368ce6e
+    tree: 824fe7f64c5e9831bb2cd7f048c78e462a35f177
     capability: ci-workflows-and-platform-archives
-  - commit: 5ecb30d92d406caf292414a1c7207ff7954f87ac
-    tree: 940266fb75a1cd3a305e7345a6a6853b0457b9f9
+  - commit: 2104550976855d2ef0ab3599f47d4aac97b8b927
+    tree: 7b48b91c274ed0a3c7ca9a0f9a65328385e085e9
     capability: auxiliary-upstream-status-preservation
-  - commit: 118dfd5d118504317bc41d9f0a1ff991844c031c
-    tree: 43d0b8567e77444acf09c01689bd24f2aec3f05b
+  - commit: 5613022367ac5e1081fa14b9494d3b9bf45a61d0
+    tree: c21c2d20d86badc9303767ff4c32425d80c0289d
     capability: operation-specific-default-deadlines
-  - commit: 9ef2db70bfca0d9f1137935d6922c69c0c3649ad
-    tree: ba7644188cf927af3079dffa5f0af40045a11192
+  - commit: 74d97baf8c39695818bda3dc155ae8f688f1658e
+    tree: 0dffb414335b1a6f8484bca2407b074871d810f2
     capability: upstream-operation-metadata-correction
-  - commit: b96a968de2257936aed15a90f28ee039c217ee7d
-    tree: ec71a5b127735ebf67ab841638932c7aec69c088
+  - commit: 46b57a3d74a57d59fec54d625defa2c329ddfed3
+    tree: 9ca793151f39f02a9eb7d7c7b33d420b2e0a91c0
     capability: websocket-pong-channel-termination
-  - commit: cc0fd9d0676d1b898093d01fb19fe700f355d93e
-    tree: f5a64ff88ec21ddf4eb807825abc350e7d38cd0d
+  - commit: d1045d62e305c5464f382b4a7fb5d36d8d69473d
+    tree: 86660ddd481e40843ef2f7004cb0f3df230fd4b9
     capability: shared-cloudflare-cookie-jar-documentation
-  - commit: bc5f49918f60a2e7e2ad06bf3e4d20439004ae3a
-    tree: 0e799e90c4675ca1e92b40f24e64e8fc5b8212d0
+  - commit: 45eb857ae2e7477790f5f5c5113d3d38dd2ac786
+    tree: 3a0aaf4739233adbd1eb5e51b36dce1fe0c8c1f6
     capability: disabled-raw-request-logging
-  - commit: f205843251749b9f476a182fab6eb6900491de7f
-    tree: 0e70293f8277dc4d2f4f5f351ddb27a1592defd8
+  - commit: 4dff159d1467a062d6686b79cab8b0807eb101b0
+    tree: 62530bd613bfea3d845a5735fba8c011d1ea1511
     capability: bounded-pre-admission-uds-connections
-  - commit: e495d8281c625b15cba497f0fd415851f32a6efd
-    tree: f818882d43380deeb85744511ea223ac35d4a45d
+  - commit: cea86526d658a25ebf1b1aa446f6b3a42211b6f6
+    tree: 3332d06ad2ddea76793488397a29639167eb6869
     capability: duplicate-upstream-header-preservation
-  - commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-    tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+  - commit: 3ae7e6ded02926496b1f8cd444d7bef587be3d2b
+    tree: 32035ba37360f0e74ae5d6301f1d4eb09468324d
     capability: release-evidence-machinery
+  - commit: 868fadfe81e69fe44527444cf1baa7aa81edab23
+    tree: 6bc3799438645bede182212e4506100363c05689
+    capability: replay-export-binding-and-identity-consistency
+  - commit: 872f86f1036008a4c0b4aa05d70a4ee55920bdcd
+    tree: f7103fe83b3c0e3202831153181e2743f9f515cc
+    capability: carried-official-header-projection
+  - commit: 1a74db25a83e09c05d774c0a74336ad672bae9e6
+    tree: 13650d2e0f16deecab42ff97b790ecd50013a077
+    capability: carried-header-whitelist-parity
+  - commit: be84c5988455dfdaf8340fa3e842365f0d57167b
+    tree: a8463474cc1ff8b64f4bcb9c945110fbb2217db6
+    capability: client-request-id-carriage
+  - commit: 7100f53217c6ae2f89482290754365ca58a05fed
+    tree: 427fa7ce76c95c751d67f5cdb3cb1dc507c0dbb0
+    capability: cargo-lock-local-version-normalization
+  - commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
+    tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+    capability: upstream-identity-repin-0159-2
 # 产品提交处的 replay/manifest.yaml 只有头部（base_commit + 线名）：source_commit/
 # source_tree 与逐提交 (commit, tree) 清单是自引用的，只能由本证据提交从实际链生成。
-# 所有改动都已折进产品链，除下面显式声明的两个 close-out 路径外不存在 post-source 例外。
-# post_source_allow：review-close-out 的文档/守门注释修复（deploy/build-sidecar.sh、docs/REPLAY0905_SQUASH_MAP.md）；不在 replay/gate.sh 通用白名单内，且产品提交已被外部钉死（不可重开产品链）故显式声明；二者均为纯注释/文档改动，对构建出的 binary 行为惰性。
-post_source_allow: deploy/build-sidecar.sh docs/REPLAY0905_SQUASH_MAP.md
+# 本线由 rust-v0.159.0 线整线重放而来；除证据路径外不存在 post-source 例外。

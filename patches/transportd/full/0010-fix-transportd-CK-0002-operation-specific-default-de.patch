@@ -1,13 +1,15 @@
-From 118dfd5d118504317bc41d9f0a1ff991844c031c Mon Sep 17 00:00:00 2001
+From 5613022367ac5e1081fa14b9494d3b9bf45a61d0 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 10 Sep 2026 01:05:35 +0800
-Subject: [PATCH 10/17] fix(transportd): CK-0002 operation-specific default
+Subject: [PATCH 10/23] fix(transportd): CK-0002 operation-specific default
  deadlines (incl. Responses streaming budget)
 
 default_deadline_for: compact 1300s, Responses/downloads 3600s, others
 300s. Missing caller deadline never truncates before official adapter
 timeout; Responses gets the WS streaming budget (GLM-0004). Adds
 default_operation_deadline tests.
+
+(cherry picked from commit 118dfd5d118504317bc41d9f0a1ff991844c031c)
 ---
  codex-rs/codex-transportd/src/server/mod.rs   |  27 ++-
  .../codex-transportd/src/transport/compact.rs |   2 +-
@@ -16,7 +18,7 @@ default_operation_deadline tests.
  create mode 100644 codex-rs/codex-transportd/tests/default_operation_deadline.rs
 
 diff --git a/codex-rs/codex-transportd/src/server/mod.rs b/codex-rs/codex-transportd/src/server/mod.rs
-index 5f516d1ab0..a5e5bcc87e 100644
+index 5f516d1..a5e5bcc 100644
 --- a/codex-rs/codex-transportd/src/server/mod.rs
 +++ b/codex-rs/codex-transportd/src/server/mod.rs
 @@ -273,9 +273,7 @@ pub(crate) async fn execute_operation(
@@ -68,7 +70,7 @@ index 5f516d1ab0..a5e5bcc87e 100644
      async fn permit_held_until_stream_end() {
          let semaphore = Arc::new(Semaphore::new(1));
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index 12eb4ce484..b70ec7917e 100644
+index 12eb4ce..b70ec79 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -19,7 +19,7 @@ use crate::transport::official_adapter;
@@ -82,7 +84,7 @@ index 12eb4ce484..b70ec7917e 100644
  pub async fn execute_compact_raw(
 diff --git a/codex-rs/codex-transportd/tests/default_operation_deadline.rs b/codex-rs/codex-transportd/tests/default_operation_deadline.rs
 new file mode 100644
-index 0000000000..8d819cea06
+index 0000000..8d819ce
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/default_operation_deadline.rs
 @@ -0,0 +1,160 @@

@@ -1,15 +1,16 @@
-From da3d82fbc21fb781ffe71b02896c39bc0e0054c2 Mon Sep 17 00:00:00 2001
+From 723806887dbea2dad48607dfd8d1b681369a7c39 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 05/17] replay0905-patch(5/8): core responses_metadata
+Subject: [PATCH 05/23] replay0905-patch(5/8): core responses_metadata
 
+(cherry picked from commit da3d82fbc21fb781ffe71b02896c39bc0e0054c2)
 ---
  codex-rs/core/src/lib.rs                |  1 +
  codex-rs/core/src/responses_metadata.rs | 70 +++++++++++++++++++++++--
  2 files changed, 68 insertions(+), 3 deletions(-)
 
 diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
-index 2595ce5bb9..7207a2a89a 100644
+index 2595ce5..7207a2a 100644
 --- a/codex-rs/core/src/lib.rs
 +++ b/codex-rs/core/src/lib.rs
 @@ -29,6 +29,7 @@ pub use codex_protocol::turn_input::TurnInputRequest;
@@ -21,7 +22,7 @@ index 2595ce5bb9..7207a2a89a 100644
  mod codex_thread;
  mod compact_model_fallback;
 diff --git a/codex-rs/core/src/responses_metadata.rs b/codex-rs/core/src/responses_metadata.rs
-index bfdeb3b40f..70538982b3 100644
+index bfdeb3b..7053898 100644
 --- a/codex-rs/core/src/responses_metadata.rs
 +++ b/codex-rs/core/src/responses_metadata.rs
 @@ -63,7 +63,11 @@ pub(crate) const WORKSPACES_KEY: &str = "workspaces";

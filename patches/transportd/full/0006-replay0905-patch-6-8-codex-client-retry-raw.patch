@@ -1,8 +1,9 @@
-From 5638c506fc6806fea207e58062155d4fdd9e3722 Mon Sep 17 00:00:00 2001
+From 5dad070e0ecdbf0e6723d5c43057031c772530ce Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 06/17] replay0905-patch(6/8): codex-client retry/raw
+Subject: [PATCH 06/23] replay0905-patch(6/8): codex-client retry/raw
 
+(cherry picked from commit 5638c506fc6806fea207e58062155d4fdd9e3722)
 ---
  codex-rs/codex-client/src/lib.rs              |   2 +
  codex-rs/codex-client/src/retry.rs            |  69 ++++++-
@@ -11,7 +12,7 @@ Subject: [PATCH 06/17] replay0905-patch(6/8): codex-client retry/raw
  create mode 100644 codex-rs/codex-client/tests/retry_raw_tests.rs
 
 diff --git a/codex-rs/codex-client/src/lib.rs b/codex-rs/codex-client/src/lib.rs
-index e634a2b294..62e0f2a8c1 100644
+index e634a2b..62e0f2a 100644
 --- a/codex-rs/codex-client/src/lib.rs
 +++ b/codex-rs/codex-client/src/lib.rs
 @@ -5,11 +5,13 @@ mod telemetry;
@@ -29,7 +30,7 @@ index e634a2b294..62e0f2a8c1 100644
  pub use crate::telemetry::RequestTelemetry;
  pub use codex_http_client::HttpClient as CodexHttpClient;
 diff --git a/codex-rs/codex-client/src/retry.rs b/codex-rs/codex-client/src/retry.rs
-index b10fa50794..3f9474fd49 100644
+index b10fa50..3f9474f 100644
 --- a/codex-rs/codex-client/src/retry.rs
 +++ b/codex-rs/codex-client/src/retry.rs
 @@ -1,6 +1,7 @@
@@ -128,7 +129,7 @@ index b10fa50794..3f9474fd49 100644
 +}
 diff --git a/codex-rs/codex-client/tests/retry_raw_tests.rs b/codex-rs/codex-client/tests/retry_raw_tests.rs
 new file mode 100644
-index 0000000000..cf1954faae
+index 0000000..cf1954f
 --- /dev/null
 +++ b/codex-rs/codex-client/tests/retry_raw_tests.rs
 @@ -0,0 +1,185 @@

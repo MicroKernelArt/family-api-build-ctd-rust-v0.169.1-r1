@@ -1,7 +1,7 @@
-From 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84 Mon Sep 17 00:00:00 2001
+From 3ae7e6ded02926496b1f8cd444d7bef587be3d2b Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 10 Sep 2026 01:06:26 +0800
-Subject: [PATCH 17/17] fix(transportd): CX-0001 release evidence machinery
+Subject: [PATCH 17/23] fix(transportd): CX-0001 release evidence machinery
 
 Release gates self-contained and input-validated: export/sbom/wire/
 release-evidence gates + static-test now validate non-sh inputs,
@@ -9,6 +9,8 @@ materialize the exact release artifact + externally-stored receipt before
 release-tag-verify, verify artifact-bound SBOM, and enforce release
 identity ancestry (declared source_commit must be an actual ancestor).
 Applies the consolidated format pass to touched code.
+
+(cherry picked from commit 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84)
 ---
  .../workflows/transportd-release-gates.yml    |  32 ++-
  .github/workflows/worker-ci.yml               |   4 +-
@@ -60,7 +62,7 @@ Applies the consolidated format pass to touched code.
  delete mode 100644 sidecar-image-receipt.txt
 
 diff --git a/.github/workflows/transportd-release-gates.yml b/.github/workflows/transportd-release-gates.yml
-index 61410e4b63..8b6c736866 100644
+index 61410e4..8b6c736 100644
 --- a/.github/workflows/transportd-release-gates.yml
 +++ b/.github/workflows/transportd-release-gates.yml
 @@ -40,7 +40,10 @@ jobs:
@@ -108,7 +110,7 @@ index 61410e4b63..8b6c736866 100644
 -      - name: SBOM gate（摘要 TBD/未绑定则失败）
 -        run: bash patches/transportd/tools/sbom-gate.sh
 diff --git a/.github/workflows/worker-ci.yml b/.github/workflows/worker-ci.yml
-index 6dd0644873..c9b667c9f2 100644
+index 6dd0644..c9b667c 100644
 --- a/.github/workflows/worker-ci.yml
 +++ b/.github/workflows/worker-ci.yml
 @@ -123,10 +123,12 @@ jobs:
@@ -126,7 +128,7 @@ index 6dd0644873..c9b667c9f2 100644
            bash patches/transportd/tools/static-fix-gates.sh
            bash patches/transportd/tools/capture-isolation-gate.sh
 diff --git a/RUNBOOK.md b/RUNBOOK.md
-index 918a389e14..92062c6e5f 100644
+index 918a389..92062c6 100644
 --- a/RUNBOOK.md
 +++ b/RUNBOOK.md
 @@ -24,14 +24,26 @@ BUILD_PROFILE=local ./deploy/build-sidecar.sh build --mode local-cargo
@@ -159,7 +161,7 @@ index 918a389e14..92062c6e5f 100644
  
  ## 部署
 diff --git a/UPSTREAM_BASE.md b/UPSTREAM_BASE.md
-index de6e1a8c6f..d10d153c91 100644
+index de6e1a8..d10d153 100644
 --- a/UPSTREAM_BASE.md
 +++ b/UPSTREAM_BASE.md
 @@ -1,24 +1,28 @@
@@ -207,7 +209,7 @@ index de6e1a8c6f..d10d153c91 100644
 +Changing any base identity requires regenerating the complete patch series and
 +all source-bound evidence.
 diff --git a/codex-rs/codex-transportd/src/server/mod.rs b/codex-rs/codex-transportd/src/server/mod.rs
-index 1e3c42ab5d..01d8d797da 100644
+index 1e3c42a..01d8d79 100644
 --- a/codex-rs/codex-transportd/src/server/mod.rs
 +++ b/codex-rs/codex-transportd/src/server/mod.rs
 @@ -824,7 +824,8 @@ mod socket_dir_tests {
@@ -221,7 +223,7 @@ index 1e3c42ab5d..01d8d797da 100644
          let d = std::env::temp_dir().join(format!(
              "ctd-socket-dir-test-{}-{}",
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index b70ec7917e..6358f124bf 100644
+index b70ec79..6358f12 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -8,12 +8,12 @@ use std::time::Duration;
@@ -240,7 +242,7 @@ index b70ec7917e..6358f124bf 100644
  use crate::transport::official_adapter;
  use crate::transport::responses;
 diff --git a/codex-rs/http-client/src/transport_tests.rs b/codex-rs/http-client/src/transport_tests.rs
-index 0574822196..7625a73d92 100644
+index 0574822..7625a73 100644
 --- a/codex-rs/http-client/src/transport_tests.rs
 +++ b/codex-rs/http-client/src/transport_tests.rs
 @@ -6,7 +6,8 @@ use http::HeaderValue;
@@ -254,7 +256,7 @@ index 0574822196..7625a73d92 100644
  use std::sync::Mutex;
  use std::sync::atomic::AtomicUsize;
 diff --git a/deploy/build-sidecar-platform-test.sh b/deploy/build-sidecar-platform-test.sh
-index 54718f14f2..9e53801551 100755
+index 54718f1..9e53801 100755
 --- a/deploy/build-sidecar-platform-test.sh
 +++ b/deploy/build-sidecar-platform-test.sh
 @@ -23,8 +23,9 @@ assert_eq() {
@@ -349,7 +351,7 @@ index 54718f14f2..9e53801551 100755
    bash "$BUILD_SCRIPT" prepare >/dev/null 2>&1; then
    echo "FAIL: release prepare accepted an arm64 Docker daemon"
 diff --git a/deploy/build-sidecar-profile-lib.sh b/deploy/build-sidecar-profile-lib.sh
-index 151afaf9ac..cebb45b14a 100755
+index 151afaf..cebb45b 100755
 --- a/deploy/build-sidecar-profile-lib.sh
 +++ b/deploy/build-sidecar-profile-lib.sh
 @@ -10,6 +10,8 @@ ctd_configure_build_profile() {
@@ -387,7 +389,7 @@ index 151afaf9ac..cebb45b14a 100755
        ;;
      *)
 diff --git a/deploy/build-sidecar-volume-test.sh b/deploy/build-sidecar-volume-test.sh
-index e4f784c7a2..db1cf6c782 100755
+index e4f784c..db1cf6c 100755
 --- a/deploy/build-sidecar-volume-test.sh
 +++ b/deploy/build-sidecar-volume-test.sh
 @@ -84,6 +84,7 @@ st_lifecycle() {
@@ -399,7 +401,7 @@ index e4f784c7a2..db1cf6c782 100755
        bash "$ST_SCRIPT" build --mode local-cargo >"$ST_WORK/$behavior.log" 2>&1
    )
 diff --git a/deploy/build-sidecar.sh b/deploy/build-sidecar.sh
-index 0755cf6f81..460968c14f 100755
+index 0755cf6..460968c 100755
 --- a/deploy/build-sidecar.sh
 +++ b/deploy/build-sidecar.sh
 @@ -11,12 +11,12 @@
@@ -607,7 +609,7 @@ index 0755cf6f81..460968c14f 100755
  echo "build-sidecar.sh 全部通过（profile=${BUILD_PROFILE} mode=${MODE} receipt=${RECEIPT}）"
 diff --git a/patches/transportd/tools/bin-verify.sh b/patches/transportd/tools/bin-verify.sh
 new file mode 100755
-index 0000000000..7ad2d06222
+index 0000000..7ad2d06
 --- /dev/null
 +++ b/patches/transportd/tools/bin-verify.sh
 @@ -0,0 +1,104 @@
@@ -717,7 +719,7 @@ index 0000000000..7ad2d06222
 +echo "PASS: image binary $BINARY_DIGEST"
 diff --git a/patches/transportd/tools/capture-isolation-gate.sh b/patches/transportd/tools/capture-isolation-gate.sh
 new file mode 100755
-index 0000000000..a796e1d6c5
+index 0000000..a796e1d
 --- /dev/null
 +++ b/patches/transportd/tools/capture-isolation-gate.sh
 @@ -0,0 +1,17 @@
@@ -740,7 +742,7 @@ index 0000000000..a796e1d6c5
 +echo "PASS: capture queue, byte budget, and write-progress invariants"
 diff --git a/patches/transportd/tools/ci-gates-static-test.sh b/patches/transportd/tools/ci-gates-static-test.sh
 new file mode 100755
-index 0000000000..d2fb038d53
+index 0000000..d2fb038
 --- /dev/null
 +++ b/patches/transportd/tools/ci-gates-static-test.sh
 @@ -0,0 +1,126 @@
@@ -872,7 +874,7 @@ index 0000000000..d2fb038d53
 +PY
 diff --git a/patches/transportd/tools/export-gate.sh b/patches/transportd/tools/export-gate.sh
 new file mode 100755
-index 0000000000..23adfa9f74
+index 0000000..23adfa9
 --- /dev/null
 +++ b/patches/transportd/tools/export-gate.sh
 @@ -0,0 +1,81 @@
@@ -959,7 +961,7 @@ index 0000000000..23adfa9f74
 +echo "PASS: review_commit=$REVIEW_COMMIT review_tree=$REVIEW_TREE"
 diff --git a/patches/transportd/tools/gate-evidence-mutation-test.sh b/patches/transportd/tools/gate-evidence-mutation-test.sh
 new file mode 100755
-index 0000000000..b5165523d5
+index 0000000..b516552
 --- /dev/null
 +++ b/patches/transportd/tools/gate-evidence-mutation-test.sh
 @@ -0,0 +1,30 @@
@@ -995,7 +997,7 @@ index 0000000000..b5165523d5
 +echo "PASS: evidence gate rejects source-tree mutation"
 diff --git a/patches/transportd/tools/gate-export-mutation-test.sh b/patches/transportd/tools/gate-export-mutation-test.sh
 new file mode 100755
-index 0000000000..6dc5c16f91
+index 0000000..6dc5c16
 --- /dev/null
 +++ b/patches/transportd/tools/gate-export-mutation-test.sh
 @@ -0,0 +1,28 @@
@@ -1029,7 +1031,7 @@ index 0000000000..6dc5c16f91
 +(cd "$REPO/codex-rs" && just test -p codex-transportd --test operations_snapshot_golden)
 diff --git a/patches/transportd/tools/gate-mutation-test.sh b/patches/transportd/tools/gate-mutation-test.sh
 new file mode 100755
-index 0000000000..ed498e4518
+index 0000000..ed498e4
 --- /dev/null
 +++ b/patches/transportd/tools/gate-mutation-test.sh
 @@ -0,0 +1,64 @@
@@ -1099,7 +1101,7 @@ index 0000000000..ed498e4518
 +echo "PASS: replay gate rejects invalid release ancestry"
 diff --git a/patches/transportd/tools/gate-wire-sbom-mutation-test.sh b/patches/transportd/tools/gate-wire-sbom-mutation-test.sh
 new file mode 100755
-index 0000000000..597404568f
+index 0000000..5974045
 --- /dev/null
 +++ b/patches/transportd/tools/gate-wire-sbom-mutation-test.sh
 @@ -0,0 +1,175 @@
@@ -1280,7 +1282,7 @@ index 0000000000..597404568f
 +echo "PASS: wire and SBOM gates reject identity and artifact mutations"
 diff --git a/patches/transportd/tools/identity-lib.sh b/patches/transportd/tools/identity-lib.sh
 new file mode 100755
-index 0000000000..1720b8bf30
+index 0000000..1720b8b
 --- /dev/null
 +++ b/patches/transportd/tools/identity-lib.sh
 @@ -0,0 +1,51 @@
@@ -1337,7 +1339,7 @@ index 0000000000..1720b8bf30
 +}
 diff --git a/patches/transportd/tools/materialize-release-artifact.sh b/patches/transportd/tools/materialize-release-artifact.sh
 new file mode 100755
-index 0000000000..1a66ba4ee9
+index 0000000..1a66ba4
 --- /dev/null
 +++ b/patches/transportd/tools/materialize-release-artifact.sh
 @@ -0,0 +1,211 @@
@@ -1554,7 +1556,7 @@ index 0000000000..1a66ba4ee9
 +echo "PASS: wrote digest-bound SBOM and receipt $RECEIPT"
 diff --git a/patches/transportd/tools/release-evidence-gate.sh b/patches/transportd/tools/release-evidence-gate.sh
 new file mode 100755
-index 0000000000..d11e2eedf9
+index 0000000..d11e2ee
 --- /dev/null
 +++ b/patches/transportd/tools/release-evidence-gate.sh
 @@ -0,0 +1,106 @@
@@ -1666,7 +1668,7 @@ index 0000000000..d11e2eedf9
 +echo "PASS: release identity $RELEASE_ID"
 diff --git a/patches/transportd/tools/release-tag-verify.sh b/patches/transportd/tools/release-tag-verify.sh
 new file mode 100755
-index 0000000000..434b2a7c0a
+index 0000000..434b2a7
 --- /dev/null
 +++ b/patches/transportd/tools/release-tag-verify.sh
 @@ -0,0 +1,38 @@
@@ -1710,7 +1712,7 @@ index 0000000000..434b2a7c0a
 +echo "PASS: release tag, source, artifact, wire, and SBOM identities"
 diff --git a/patches/transportd/tools/sbom-gate.sh b/patches/transportd/tools/sbom-gate.sh
 new file mode 100755
-index 0000000000..e9ff613aa3
+index 0000000..e9ff613
 --- /dev/null
 +++ b/patches/transportd/tools/sbom-gate.sh
 @@ -0,0 +1,139 @@
@@ -1855,7 +1857,7 @@ index 0000000000..e9ff613aa3
 +fi
 diff --git a/patches/transportd/tools/static-fix-gates.sh b/patches/transportd/tools/static-fix-gates.sh
 new file mode 100755
-index 0000000000..3c24fe5e38
+index 0000000..3c24fe5
 --- /dev/null
 +++ b/patches/transportd/tools/static-fix-gates.sh
 @@ -0,0 +1,24 @@
@@ -1885,7 +1887,7 @@ index 0000000000..3c24fe5e38
 +echo "PASS: consolidated transportd static invariants"
 diff --git a/patches/transportd/tools/wire-gate.sh b/patches/transportd/tools/wire-gate.sh
 new file mode 100755
-index 0000000000..4fd8c1198a
+index 0000000..4fd8c11
 --- /dev/null
 +++ b/patches/transportd/tools/wire-gate.sh
 @@ -0,0 +1,29 @@
@@ -1920,7 +1922,7 @@ index 0000000000..4fd8c1198a
 +echo "PASS: wire metadata status=$STATUS"
 diff --git a/patches/transportd/tools/write-source-receipt.sh b/patches/transportd/tools/write-source-receipt.sh
 new file mode 100755
-index 0000000000..1fdfb0b532
+index 0000000..1fdfb0b
 --- /dev/null
 +++ b/patches/transportd/tools/write-source-receipt.sh
 @@ -0,0 +1,39 @@
@@ -1964,7 +1966,7 @@ index 0000000000..1fdfb0b532
 +EOF
 +echo "PASS: wrote external source receipt $RECEIPT"
 diff --git a/replay/gate.sh b/replay/gate.sh
-index 010a397070..5e29e8ade5 100755
+index 010a397..5e29e8a 100755
 --- a/replay/gate.sh
 +++ b/replay/gate.sh
 @@ -2,7 +2,7 @@
@@ -2118,7 +2120,7 @@ index 010a397070..5e29e8ade5 100755
 +echo "PASS: replay source=$SOURCE_COMMIT tree=$SOURCE_TREE commits=$EXPECTED_COUNT"
 +echo "PASS: review=$CURRENT tree=$(git -C "$REPO" rev-parse 'HEAD^{tree}')"
 diff --git a/replay/worker-ci-static-test.sh b/replay/worker-ci-static-test.sh
-index 43bd719a95..a0c4ca5dca 100755
+index 43bd719..a0c4ca5 100755
 --- a/replay/worker-ci-static-test.sh
 +++ b/replay/worker-ci-static-test.sh
 @@ -1,4 +1,5 @@
@@ -2151,7 +2153,7 @@ index 43bd719a95..a0c4ca5dca 100755
  
 diff --git a/sidecar-image-receipt.txt b/sidecar-image-receipt.txt
 deleted file mode 100644
-index 7c96fbb75a..0000000000
+index 7c96fbb..0000000
 --- a/sidecar-image-receipt.txt
 +++ /dev/null
 @@ -1,12 +0,0 @@

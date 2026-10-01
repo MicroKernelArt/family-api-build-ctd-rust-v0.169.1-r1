@@ -34,9 +34,9 @@
 
 ## gate metadata（由证据提交写入；sbom-gate.sh 逐字段比对 series.yaml）
 
-sbom_source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-sbom_source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
-sbom_cargo_lock_sha256: 781fd2792f915e5d60bbf1fd2b3d40e15b7e56b644d34b8b25d098bc9a707fa8
+sbom_source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
+sbom_source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+sbom_cargo_lock_sha256: a261a31a5e6f3114ec1d6db442e379b3f11568d514780322d03840856a84f73c
 sbom_module_bazel_lock_sha256: be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31
 sbom_status: generated-from-locks
 sbom_artifact_status: external-receipt-required

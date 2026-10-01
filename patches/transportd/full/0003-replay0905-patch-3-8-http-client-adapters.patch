@@ -1,8 +1,9 @@
-From 4027ab3d5883d56605d5476b40f3ef8c923d235d Mon Sep 17 00:00:00 2001
+From d52c3ce4162c34983ea78da99cffe737b974fe22 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 03/17] replay0905-patch(3/8): http-client adapters
+Subject: [PATCH 03/23] replay0905-patch(3/8): http-client adapters
 
+(cherry picked from commit 4027ab3d5883d56605d5476b40f3ef8c923d235d)
 ---
  codex-rs/http-client/src/lib.rs             |   1 +
  codex-rs/http-client/src/outbound_proxy.rs  |  27 ++++
@@ -11,7 +12,7 @@ Subject: [PATCH 03/17] replay0905-patch(3/8): http-client adapters
  4 files changed, 258 insertions(+), 1 deletion(-)
 
 diff --git a/codex-rs/http-client/src/lib.rs b/codex-rs/http-client/src/lib.rs
-index 5eb01f021b..3586b920b1 100644
+index 5eb01f0..3586b92 100644
 --- a/codex-rs/http-client/src/lib.rs
 +++ b/codex-rs/http-client/src/lib.rs
 @@ -50,6 +50,7 @@ pub use crate::outbound_proxy::MacosSystemProxyConfiguration;
@@ -23,7 +24,7 @@ index 5eb01f021b..3586b920b1 100644
  pub use crate::outbound_proxy::cache_system_proxy_route_for_test;
  #[cfg(target_os = "macos")]
 diff --git a/codex-rs/http-client/src/outbound_proxy.rs b/codex-rs/http-client/src/outbound_proxy.rs
-index 7668333c6a..1666950ce3 100644
+index 7668333..1666950 100644
 --- a/codex-rs/http-client/src/outbound_proxy.rs
 +++ b/codex-rs/http-client/src/outbound_proxy.rs
 @@ -338,6 +338,33 @@ impl HttpClientFactory {
@@ -61,7 +62,7 @@ index 7668333c6a..1666950ce3 100644
      env: &dyn EnvSource,
      request_url: &str,
 diff --git a/codex-rs/http-client/src/transport.rs b/codex-rs/http-client/src/transport.rs
-index 369d4ea68c..36cd864458 100644
+index 369d4ea..36cd864 100644
 --- a/codex-rs/http-client/src/transport.rs
 +++ b/codex-rs/http-client/src/transport.rs
 @@ -42,6 +42,25 @@ pub trait HttpTransport: Send + Sync {
@@ -145,7 +146,7 @@ index 369d4ea68c..36cd864458 100644
  
  fn bounded_response_stream(
 diff --git a/codex-rs/http-client/src/transport_tests.rs b/codex-rs/http-client/src/transport_tests.rs
-index f8240ba245..6d4df28e1e 100644
+index f8240ba..6d4df28 100644
 --- a/codex-rs/http-client/src/transport_tests.rs
 +++ b/codex-rs/http-client/src/transport_tests.rs
 @@ -1,12 +1,21 @@

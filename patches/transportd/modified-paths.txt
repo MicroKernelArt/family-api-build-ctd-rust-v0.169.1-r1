@@ -1,9 +1,9 @@
 # fork 完整修改面（机器生成；请勿手改）
 # 生成命令：bash patches/transportd/tools/gen-modification-surface.sh
-# 等价命令：git diff --name-only 687a119f0fcaace47e1f1abcc77cec6c813fd6da 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-# upstream 基线（peeled_base_commit）：687a119f0fcaace47e1f1abcc77cec6c813fd6da
-# 本线产品提交（source_commit）：05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-# 路径总数：206（codex-rs/codex-transportd/ 61；codex-rs/ 其它 24；非 codex-rs/ 121）
+# 等价命令：git diff --name-only ff6aec96948b70d94983af2641a6b67c94faeff5 e517cf8d50731482d2166b2d59a035ad6a8908e2
+# upstream 基线（peeled_base_commit）：ff6aec96948b70d94983af2641a6b67c94faeff5
+# 本线产品提交（source_commit）：e517cf8d50731482d2166b2d59a035ad6a8908e2
+# 路径总数：226（codex-rs/codex-transportd/ 61；codex-rs/ 其它 24；非 codex-rs/ 141）
 .dockerignore
 .github/workflows/rust-ci-full-nextest-platform.yml
 .github/workflows/transportd-release-gates.yml
@@ -189,6 +189,25 @@ deploy/vendor-debs/openssl_3.5.6-1~deb13u2_amd64.deb
 deploy/vendor-debs/zlib1g_1_1.3.dfsg+really1.3.1-1+b1_amd64.deb
 docs/REPLAY0905_SQUASH_MAP.md
 docs/workflows/README.md
+patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
+patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
+patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
+patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
+patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
+patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
+patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
+patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
+patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
+patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
+patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
+patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
+patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
+patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
+patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
+patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
+patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
+patches/transportd/modified-paths.txt
+patches/transportd/series.yaml
 patches/transportd/tools/bin-verify.sh
 patches/transportd/tools/capture-isolation-gate.sh
 patches/transportd/tools/ci-gates-static-test.sh
@@ -197,6 +216,7 @@ patches/transportd/tools/gate-evidence-mutation-test.sh
 patches/transportd/tools/gate-export-mutation-test.sh
 patches/transportd/tools/gate-mutation-test.sh
 patches/transportd/tools/gate-wire-sbom-mutation-test.sh
+patches/transportd/tools/gen-modification-surface.sh
 patches/transportd/tools/identity-lib.sh
 patches/transportd/tools/materialize-release-artifact.sh
 patches/transportd/tools/release-evidence-gate.sh

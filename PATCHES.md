@@ -1,22 +1,29 @@
-# PATCHES（transportd/v0.159.0 相对 upstream rust-v0.159.0）
+# PATCHES（transportd/v0.159.2 相对 upstream rust-v0.159.2）
 
-patches_source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-patches_source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
+patches_source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
+patches_source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
 
 本文件是 fork 的修改面与需求映射清单（TLS-CTD-001 §10.6 / FR-006）。下表每一行
 都必须可映射到一个需求；P-row 只覆盖四类 adapter 改动：新增 binary crate、
 metadata adapter、raw response adapter、显式 proxy route adapter。
 
 P-row 表是需求映射的**子集**，不是完整修改面，也不构成「未列出文件与 upstream
-一致」的声明。本线相对 upstream `rust-v0.159.0`
-（`687a119f0fcaace47e1f1abcc77cec6c813fd6da`）共修改 **206** 个路径：
+一致」的声明。本线相对 upstream `rust-v0.159.2`
+（`ff6aec96948b70d94983af2641a6b67c94faeff5`）共修改 **226** 个路径：
 `codex-rs/codex-transportd/` 内 61 个、`codex-rs/` 其它文件 24 个、非
-`codex-rs/` 路径 121 个（`deploy/` 85、`patches/transportd/tools/` 16、
+`codex-rs/` 路径 141 个（`deploy/` 85、`patches/transportd/` 36、
 `replay/` 4、`.github/workflows/` 4、`docs/` 2、`scripts/` 1、仓库根 9）。
+
+> **基线沿革**：本线原基于 `rust-v0.159.0`（`687a119f0f`，206 个路径）。因 Go 侧
+> sub2api 实现实际对齐 `rust-v0.159.2`，已整线重放到 `rust-v0.159.2`
+> （`ff6aec96`，23 个产品提交）。0.159.0→0.159.2 的上游 delta 只有 75 个文件
+> （+724/−183），与本线修改面仅在 `codex-rs/Cargo.toml` 与 `codex-rs/Cargo.lock`
+> 两处相交，二者均已重解析/归一化。新增的 20 个路径全部落在
+> `patches/transportd/full/`（17→23 个导出补丁）。
 
 完整、逐行的机器生成清单见 `patches/transportd/modified-paths.txt`，生成命令
 `bash patches/transportd/tools/gen-modification-surface.sh`（等价于
-`git diff --name-only 687a119f0fcaace47e1f1abcc77cec6c813fd6da <source_commit>`）。
+`git diff --name-only ff6aec96948b70d94983af2641a6b67c94faeff5 <source_commit>`）。
 该清单中存在大量未被任何 P-row 命名的路径，例如整个 `deploy/vendor-debs*/`、
 `patches/transportd/tools/`、`replay/`，以及 `codex-rs/` 下若干非 transportd 文件
 （`codex-rs/codex-api/src/telemetry.rs`、`codex-rs/codex-client/src/{lib,retry}.rs`、
@@ -30,7 +37,7 @@ P-row 表是需求映射的**子集**，不是完整修改面，也不构成「�
 |---|---|---|---|---|
 | P-001 | `codex-rs/codex-transportd/*` | 新增 crate（UDS server、health/info、installation bootstrap、封闭 operation、官方 adapter、client pool、WS relay） | sidecar 本体 | T-002/T-003/T-005/T-009 |
 | P-002 | `codex-rs/Cargo.toml` | workspace members 增加 `codex-transportd` | 纳入 locked workspace | T-002 |
-| P-003 | `codex-rs/Cargo.lock` | 增加 `codex-transportd` 包节点；本地包版本标签由 cargo 归一化 0.0.0→0.159.0（依赖图不变，官方 lock 本身在 cargo 1.95 下已 stale） | clean lockfile 构建（`--locked` 可复现） | T-002 |
+| P-003 | `codex-rs/Cargo.lock` | 增加 `codex-transportd` 包节点；本地包版本标签由 cargo 归一化 0.0.0→0.159.2（依赖图不变，官方 lock 本身在 cargo 1.95 下已 stale） | clean lockfile 构建（`--locked` 可复现） | T-002 |
 | P-004 | `.github/workflows/transportd.yml` | CI locked build/test/clippy + artifact digest | build-proof CI | T-002 |
 | P-005 | `UPSTREAM_BASE.md` / `PATCHES.md` / `codex-rs/codex-transportd/BUILD_PROOF.md` | fork 冻结证据 | CP-002 gate | T-002 |
 | P-006 | `codex-rs/core/src/responses_metadata.rs` | 新增 `CodexResponsesMetadata::try_for_transport`（UUIDv7/window 校验窄构造器）与 `TransportMetadataError`；`client_metadata`/`compatibility_headers` 转 pub | metadata adapter（FR-009/FR-010） | T-005 |

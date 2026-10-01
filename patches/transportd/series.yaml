@@ -1,4 +1,4 @@
-# replay0905 complete source export (rust-v0.159.0 replay).
+# replay0905 complete source export (rust-v0.159.2 replay).
 # The immutable source identity is the final product/gate commit. This manifest
 # and the patches below live in a later evidence-only commit so they cannot
 # claim the commit that contains themselves.
@@ -6,21 +6,21 @@ schema: cwf/replay-series/v2
 kind: replay_series
 series: replay0905
 upstream: openai/codex
-upstream_tag: rust-v0.159.0
-official_tag_object: 377f7f557a6bdea0f3a2d26d4d899c66db4789d0
-peeled_base_commit: 687a119f0fcaace47e1f1abcc77cec6c813fd6da
-source_commit: 05289a36b7d2dc0db62fe1d8fa0bb94a4abc5f84
-source_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
-expected_release_tree: 972b1ac3a5be0b3b9fd49b6f383feab990b5beab
-series_entries: 17
-cargo_lock_sha256: 781fd2792f915e5d60bbf1fd2b3d40e15b7e56b644d34b8b25d098bc9a707fa8
+upstream_tag: rust-v0.159.2
+official_tag_object: 8b9fa496bbf2c47aebd62e85a080b9a522a455b5
+peeled_base_commit: ff6aec96948b70d94983af2641a6b67c94faeff5
+source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
+source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+expected_release_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+series_entries: 23
+cargo_lock_sha256: a261a31a5e6f3114ec1d6db442e379b3f11568d514780322d03840856a84f73c
 module_bazel_lock_sha256: be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31
 v8_archive_sha256_x86_64-unknown-linux-gnu: 5869fdb7071b1f21f200a97ce97d20125877e0f31cd802ed99de2c53f488b06c
 v8_archive_sha256_aarch64-unknown-linux-gnu: b7177d52ad3337272fe0d3b8e778239c821a95c25d5959dec62b9efd654f7dd3
 artifact_identity: external_receipt
 review_identity: gate_runtime
-release_id: ctd-rust-v0.159.0-r1
-release_tag: transportd/ctd-rust-v0.159.0-r1
+release_id: ctd-rust-v0.159.2-r1
+release_tag: transportd/ctd-rust-v0.159.2-r1
 release_status: unapproved
 patches:
   - full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
@@ -40,3 +40,9 @@ patches:
   - full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
   - full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
   - full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
+  - full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
+  - full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
+  - full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
+  - full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
+  - full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
+  - full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
