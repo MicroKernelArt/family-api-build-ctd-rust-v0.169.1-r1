@@ -62,10 +62,19 @@ pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
 /// 与 Go 侧 `codex_transport_integration.go` 的 `codexCarriedHeaderNames`
 /// **逐字相等**；任何一侧增删都会让上游投影与 R-Go 直连发生漂移。
 ///
-/// 有意不纳入：`user-agent` / `originator` / `version`（跨语言契约显式禁止携带，
-/// 由官方 client 信封产出）、`x-codex-installation-id`（installation 身份由
-/// sidecar 从 account_key 确定性派生）、`x-codex-parent-thread-id` /
-/// `x-openai-subagent`（subagent 作用域，不在 R-Go 对拍范围）。
+/// 有意不纳入：
+/// - `version`：跨语言契约显式禁止携带，且由官方 provider 的 version header
+///   （`CARGO_PKG_VERSION`）产出，承载它会让 sidecar 谎报自身构建版本；
+/// - `x-client-request-id`：R-Go 直连路径主动剥离（Go 侧
+///   `codexReservedHeaderNames`），两侧出站一致为空，属"有意共同不发"；
+/// - `x-codex-installation-id`：installation 身份由 sidecar 从 account_key
+///   确定性派生；
+/// - `x-codex-parent-thread-id` / `x-openai-subagent`：subagent 作用域，
+///   不在 R-Go 对拍范围。
+///
+/// `user-agent` / `originator` 纳入：R-Go 侧是网关归一化值，R-CTD 侧由官方
+/// generator 在 sidecar 自身构建环境求值（os_info/arch/terminal、
+/// `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`），只有承载通道能对齐两者。
 pub const CARRIED_HEADER_NAMES: &[&str] = &[
     "session-id",
     "thread-id",
@@ -74,8 +83,9 @@ pub const CARRIED_HEADER_NAMES: &[&str] = &[
     "x-codex-beta-features",
     "x-codex-routing-hint",
     "x-openai-internal-codex-responses-lite",
-    "x-client-request-id",
     "openai-beta",
+    "user-agent",
+    "originator",
 ];
 
 /// 凭据硬护栏：这些名字绝不进入上游投影，出现即 fail closed
@@ -724,7 +734,7 @@ mod carried_header_tests {
 
     #[test]
     fn whitelisted_values_are_carried_and_injected_verbatim() {
-        let raw = r#"{"x-codex-turn-metadata":"{\"sandbox\":\"seatbelt\",\"model\":\"gpt-5\"}","x-client-request-id":"req-abc","openai-beta":"responses_multi_agent=2026-01-01"}"#;
+        let raw = r#"{"x-codex-turn-metadata":"{\"sandbox\":\"seatbelt\",\"model\":\"gpt-5\"}","user-agent":"codex-tui/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color","openai-beta":"responses_multi_agent=2026-01-01"}"#;
         let ctx = with_carried(raw).expect("parse");
         assert_eq!(ctx.carried_headers.len(), 3);
         let outbound = ctx.carried_header_map();
@@ -732,7 +742,10 @@ mod carried_header_tests {
             outbound.get("x-codex-turn-metadata").expect("turn metadata"),
             r#"{"sandbox":"seatbelt","model":"gpt-5"}"#
         );
-        assert_eq!(outbound.get("x-client-request-id").unwrap(), "req-abc");
+        assert_eq!(
+            outbound.get("user-agent").unwrap(),
+            "codex-tui/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color"
+        );
         assert_eq!(
             outbound.get("openai-beta").unwrap(),
             "responses_multi_agent=2026-01-01"
@@ -756,7 +769,10 @@ mod carried_header_tests {
 
     #[test]
     fn non_whitelisted_headers_are_dropped() {
-        let raw = r#"{"x-codex-installation-id":"inst-1","user-agent":"codex-tui/0.159.0","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
+        // x-codex-installation-id / version / x-client-request-id 都不在白名单：
+        // 前者由 sidecar 从 account_key 派生，后两者是"有意两侧都不发"或官方
+        // provider 自有，承载它们会造出 R-Go 没有的头。
+        let raw = r#"{"x-codex-installation-id":"inst-1","version":"0.159.0","x-client-request-id":"req-abc","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
         let ctx = with_carried(raw).expect("parse");
         assert_eq!(ctx.carried_headers.len(), 1);
         assert_eq!(
@@ -765,7 +781,8 @@ mod carried_header_tests {
         );
         let outbound = ctx.carried_header_map();
         assert!(outbound.get("x-codex-installation-id").is_none());
-        assert!(outbound.get("user-agent").is_none());
+        assert!(outbound.get("version").is_none());
+        assert!(outbound.get("x-client-request-id").is_none());
     }
 
     #[test]
