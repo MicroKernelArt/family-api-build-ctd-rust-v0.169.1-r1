@@ -1,7 +1,7 @@
 From 5f861161fea69ec8537c25b9a4b45f6406bc611e Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:19:43 +0800
-Subject: [PATCH 24/32] replay0905-v0159.2: re-export the patch series against
+Subject: [PATCH 24/34] replay0905-v0159.2: re-export the patch series against
  the 0.159.2 base
 
 Evidence-only commit: records the 23-commit product chain replayed onto

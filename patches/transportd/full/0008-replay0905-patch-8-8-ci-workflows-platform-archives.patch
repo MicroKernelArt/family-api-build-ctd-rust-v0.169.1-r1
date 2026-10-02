@@ -1,7 +1,7 @@
 From 5ab994bd792b3182374640a099d1def90368ce6e Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 08/32] replay0905-patch(8/8): ci workflows + platform archives
+Subject: [PATCH 08/34] replay0905-patch(8/8): ci workflows + platform archives
 
 (cherry picked from commit 148b34118050f2e2135b610ee3031612386cc171)
 ---

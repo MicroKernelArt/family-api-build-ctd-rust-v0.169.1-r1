@@ -1,7 +1,7 @@
 # PATCHES（transportd/v0.159.2 相对 upstream rust-v0.159.2）
 
-patches_source_commit: e517cf8d50731482d2166b2d59a035ad6a8908e2
-patches_source_tree: f49038f656487bdaf6e02103ad8e409bc09b86cc
+patches_source_commit: f337881f332a78e04d33761a8cb03d4ead168438
+patches_source_tree: 6730446c734fad9c0409087634a332b596a04be4
 
 本文件是 fork 的修改面与需求映射清单（TLS-CTD-001 §10.6 / FR-006）。下表每一行
 都必须可映射到一个需求；P-row 只覆盖四类 adapter 改动：新增 binary crate、
@@ -9,9 +9,9 @@ metadata adapter、raw response adapter、显式 proxy route adapter。
 
 P-row 表是需求映射的**子集**，不是完整修改面，也不构成「未列出文件与 upstream
 一致」的声明。本线相对 upstream `rust-v0.159.2`
-（`ff6aec96948b70d94983af2641a6b67c94faeff5`）共修改 **235** 个路径：
+（`ff6aec96948b70d94983af2641a6b67c94faeff5`）共修改 **244** 个路径：
 `codex-rs/codex-transportd/` 内 63 个、`codex-rs/` 其它文件 25 个、非
-`codex-rs/` 路径 147 个（`deploy/` 85、`patches/transportd/` 42、
+`codex-rs/` 路径 156 个（`deploy/` 85、`patches/transportd/` 51、
 `replay/` 4、`.github/workflows/` 4、`docs/` 2、`scripts/` 1、仓库根 9）。
 
 > **基线沿革**：本线原基于 `rust-v0.159.0`（`687a119f0f`，206 个路径）。因 Go 侧
@@ -26,6 +26,15 @@ P-row 表是需求映射的**子集**，不是完整修改面，也不构成「�
 > （tree `db0a4bd1`）。导出补丁 23→**32**，修改面 226→**235** 个路径。
 > 该批改动**不在**下方 P-row 表的 T-00x 需求映射内（P-row 是 CP-002 时代的
 > 四类 adapter 映射子集），其需求与逐提交说明见 `up-1001/docs/04`。
+>
+> **2026-10-02 三次重导出**：安装标识账号隔离的 Rust 半步
+> （`f337881`：`CARRIED_HEADER_NAMES` 增列 `x-codex-installation-id`，
+> `effective_installation_id` 承载优先，v1 `/responses` 消费该头不再外发）
+> 折入系列，`source_commit` 由 `b525b183` 前移到 `f337881f`
+> （tree `6730446c`）。导出补丁 32→**34**，修改面 235→**244** 个路径。
+> 同一提交把 `release_id` 由 `ctd-rust-v0.159.2-r1` 递增为
+> `ctd-rust-v0.159.2-r2`：r1 已按 `b525b183` 构建并交付（内容不同的同 id
+> 产物 = 身份碰撞），本次内容已变，必须换 id。
 
 完整、逐行的机器生成清单见 `patches/transportd/modified-paths.txt`，生成命令
 `bash patches/transportd/tools/gen-modification-surface.sh`（等价于

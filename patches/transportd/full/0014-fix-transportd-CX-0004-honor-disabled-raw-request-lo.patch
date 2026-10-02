@@ -1,7 +1,7 @@
 From 45eb857ae2e7477790f5f5c5113d3d38dd2ac786 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:04:40 +0800
-Subject: [PATCH 14/32] fix(transportd): CX-0004 honor disabled raw request
+Subject: [PATCH 14/34] fix(transportd): CX-0004 honor disabled raw request
  logging
 
 (cherry picked from commit bc5f49918f60a2e7e2ad06bf3e4d20439004ae3a)

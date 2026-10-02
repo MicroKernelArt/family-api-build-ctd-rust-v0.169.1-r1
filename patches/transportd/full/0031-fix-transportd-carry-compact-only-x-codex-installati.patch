@@ -1,7 +1,7 @@
 From d72d6fb2b990eee96b63129cb209f42aa84ed7a2 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 00:09:05 +0800
-Subject: [PATCH 31/32] fix(transportd): carry compact-only
+Subject: [PATCH 31/34] fix(transportd): carry compact-only
  x-codex-installation-id under hookpoint=v3
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

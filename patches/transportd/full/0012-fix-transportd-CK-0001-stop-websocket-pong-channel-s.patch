@@ -1,7 +1,7 @@
 From 46b57a3d74a57d59fec54d625defa2c329ddfed3 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 00:58:33 +0800
-Subject: [PATCH 12/32] fix(transportd): CK-0001 stop websocket pong-channel
+Subject: [PATCH 12/34] fix(transportd): CK-0001 stop websocket pong-channel
  spin
 
 (cherry picked from commit b96a968de2257936aed15a90f28ee039c217ee7d)

@@ -1,7 +1,7 @@
 From be84c5988455dfdaf8340fa3e842365f0d57167b Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 14:38:00 +0800
-Subject: [PATCH 21/32] fix(transportd): carry x-client-request-id so R-CTD
+Subject: [PATCH 21/34] fix(transportd): carry x-client-request-id so R-CTD
  matches the new R-Go wire
 
 The Go identity projection now derives x-client-request-id = md.SessionID (the

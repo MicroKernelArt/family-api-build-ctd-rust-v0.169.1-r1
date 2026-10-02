@@ -4,11 +4,11 @@ repository: family-api-codex
 upstream_tag: rust-v0.159.2
 upstream_tag_object: 8b9fa496bbf2c47aebd62e85a080b9a522a455b5
 base_commit: ff6aec96948b70d94983af2641a6b67c94faeff5
-source_commit: b525b18365ac4cd1626f15105a5b647933271e0c
-source_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
-release_commit: b525b18365ac4cd1626f15105a5b647933271e0c
-expected_release_tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
-commit_count: 32
+source_commit: f337881f332a78e04d33761a8cb03d4ead168438
+source_tree: 6730446c734fad9c0409087634a332b596a04be4
+release_commit: f337881f332a78e04d33761a8cb03d4ead168438
+expected_release_tree: 6730446c734fad9c0409087634a332b596a04be4
+commit_count: 34
 commits:
   - commit: 86af8ae437d735cf195003e1d63bdcfc1640e389
     tree: 95993bf5ffb29a67b7cc620f3d1d1c4d8ae7f549
@@ -106,9 +106,18 @@ commits:
   - commit: b525b18365ac4cd1626f15105a5b647933271e0c
     tree: db0a4bd1ea1ce5ecf7a1ed5ecff706621e8dd2ba
     capability: v3-compact-wire-header-sequence-pin
+  - commit: cfb9875b573b7bb49d824738cdb5c3048e3fd61d
+    tree: d5c27ce353d7d59d698ad222ed2fd06599f1fdfe
+    capability: replay-series-reexport-hookpoint
+  - commit: f337881f332a78e04d33761a8cb03d4ead168438
+    tree: 6730446c734fad9c0409087634a332b596a04be4
+    capability: installation-id-projection-identity
 # 本清单覆盖 base_commit..source_commit 的**每一个**提交（含线内证据提交
 # 5f86116；它是自引用清单的生成者，但仍是 source_commit 的祖先，故必须在列，
 # 否则 replay/gate.sh 的相邻性断言会失败）。逐提交 (commit, tree) 由本证据提交
 # 从实际链生成；除证据路径外不存在 post-source 例外。
 # 本线由 rust-v0.159.0 线整线重放而来，并于 2026-10-02 针对 hookpoint v1/v3
-# 对齐工作做了第二次重导出（series_entries 23 -> 32）。
+# 对齐工作做了第二次重导出（commit_count 23 -> 32）。
+# 2026-10-02 第三次重导出：source_commit 由 b525b183 前移到 f337881f
+# （tree 6730446c），commit_count 32 -> 34。新增的两条里 cfb9875 也是**线内
+# 证据提交**（上一次重导出的生成者），与 5f86116 同理必须在列。

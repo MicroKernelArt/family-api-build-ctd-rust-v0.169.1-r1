@@ -1,7 +1,7 @@
 From d52c3ce4162c34983ea78da99cffe737b974fe22 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 03/32] replay0905-patch(3/8): http-client adapters
+Subject: [PATCH 03/34] replay0905-patch(3/8): http-client adapters
 
 (cherry picked from commit 4027ab3d5883d56605d5476b40f3ef8c923d235d)
 ---

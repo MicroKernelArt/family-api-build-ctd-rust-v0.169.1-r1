@@ -1,7 +1,7 @@
 From 7100f53217c6ae2f89482290754365ca58a05fed Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:16:31 +0800
-Subject: [PATCH 22/32] replay0905-v0159.2: normalize Cargo.lock local versions
+Subject: [PATCH 22/34] replay0905-v0159.2: normalize Cargo.lock local versions
  to 0.159.2
 
 The 0.159.0 line's Cargo.lock carried cargo's normalization of the

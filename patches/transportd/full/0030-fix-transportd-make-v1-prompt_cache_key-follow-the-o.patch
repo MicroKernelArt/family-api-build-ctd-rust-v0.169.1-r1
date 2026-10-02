@@ -1,7 +1,7 @@
 From 800aa5acbc865347d5b8676b9cdb9d45cfa64a39 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 00:04:01 +0800
-Subject: [PATCH 30/32] fix(transportd): make v1 prompt_cache_key follow the
+Subject: [PATCH 30/34] fix(transportd): make v1 prompt_cache_key follow the
  outbound session-id (I8)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

@@ -1,7 +1,7 @@
 From eb834b950b5557b83219ff578f22f491e37d2876 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 20:40:20 +0800
-Subject: [PATCH 27/32] feat(transportd): align v1 outbound wire shape with
+Subject: [PATCH 27/34] feat(transportd): align v1 outbound wire shape with
  official 0.159.2
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

@@ -1,7 +1,7 @@
 From 4dff159d1467a062d6686b79cab8b0807eb101b0 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:12:35 +0800
-Subject: [PATCH 15/32] fix(transportd): CX-0002 bound pre-admission UDS
+Subject: [PATCH 15/34] fix(transportd): CX-0002 bound pre-admission UDS
  connections
 
 (cherry picked from commit f205843251749b9f476a182fab6eb6900491de7f)

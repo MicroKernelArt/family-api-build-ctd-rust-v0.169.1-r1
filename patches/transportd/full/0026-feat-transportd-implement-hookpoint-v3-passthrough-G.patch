@@ -1,7 +1,7 @@
 From 73d0c8194ab1a81e3291a0b6a31c5dac2d2cd508 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 19:38:10 +0800
-Subject: [PATCH 26/32] feat(transportd): implement hookpoint=v3 passthrough
+Subject: [PATCH 26/34] feat(transportd): implement hookpoint=v3 passthrough
  (Go owns the request)
 
 v3 replaces the inputs of the request-construction step only. The auth

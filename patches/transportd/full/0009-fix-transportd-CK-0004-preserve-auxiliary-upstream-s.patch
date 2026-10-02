@@ -1,7 +1,7 @@
 From 2104550976855d2ef0ab3599f47d4aac97b8b927 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 00:24:43 +0800
-Subject: [PATCH 09/32] fix(transportd): CK-0004 preserve auxiliary upstream
+Subject: [PATCH 09/34] fix(transportd): CK-0004 preserve auxiliary upstream
  status
 
 (cherry picked from commit 5ecb30d92d406caf292414a1c7207ff7954f87ac)

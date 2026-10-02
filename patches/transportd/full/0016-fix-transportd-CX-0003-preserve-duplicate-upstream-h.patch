@@ -1,7 +1,7 @@
 From cea86526d658a25ebf1b1aa446f6b3a42211b6f6 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:15:43 +0800
-Subject: [PATCH 16/32] fix(transportd): CX-0003 preserve duplicate upstream
+Subject: [PATCH 16/34] fix(transportd): CX-0003 preserve duplicate upstream
  headers
 
 (cherry picked from commit e495d8281c625b15cba497f0fd415851f32a6efd)

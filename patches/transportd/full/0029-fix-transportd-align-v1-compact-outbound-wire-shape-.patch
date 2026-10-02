@@ -1,7 +1,7 @@
 From d7330b7eb1f389ea16d94bcdd05ae1a7709845eb Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 22:28:41 +0800
-Subject: [PATCH 29/32] fix(transportd): align v1 compact outbound wire shape
+Subject: [PATCH 29/34] fix(transportd): align v1 compact outbound wire shape
  (zstd + official header order)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

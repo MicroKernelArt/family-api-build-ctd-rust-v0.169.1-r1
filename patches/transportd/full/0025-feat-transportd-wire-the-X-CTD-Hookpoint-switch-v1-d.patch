@@ -1,7 +1,7 @@
 From 79de633a5926db4b561e53c0293864d4bb737ef6 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:59:50 +0800
-Subject: [PATCH 25/32] feat(transportd): wire the X-CTD-Hookpoint switch (v1
+Subject: [PATCH 25/34] feat(transportd): wire the X-CTD-Hookpoint switch (v1
  default)
 
 Step-5 switch wiring only: v3 takes the same implementation path as v1 and

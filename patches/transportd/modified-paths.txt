@@ -1,9 +1,9 @@
 # fork 完整修改面（机器生成；请勿手改）
 # 生成命令：bash patches/transportd/tools/gen-modification-surface.sh
-# 等价命令：git diff --name-only ff6aec96948b70d94983af2641a6b67c94faeff5 b525b18365ac4cd1626f15105a5b647933271e0c
+# 等价命令：git diff --name-only ff6aec96948b70d94983af2641a6b67c94faeff5 f337881f332a78e04d33761a8cb03d4ead168438
 # upstream 基线（peeled_base_commit）：ff6aec96948b70d94983af2641a6b67c94faeff5
-# 本线产品提交（source_commit）：b525b18365ac4cd1626f15105a5b647933271e0c
-# 路径总数：235（codex-rs/codex-transportd/ 63；codex-rs/ 其它 25；非 codex-rs/ 147）
+# 本线产品提交（source_commit）：f337881f332a78e04d33761a8cb03d4ead168438
+# 路径总数：244（codex-rs/codex-transportd/ 63；codex-rs/ 其它 25；非 codex-rs/ 156）
 .dockerignore
 .github/workflows/rust-ci-full-nextest-platform.yml
 .github/workflows/transportd-release-gates.yml
@@ -215,6 +215,15 @@ patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-
 patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
 patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
 patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
+patches/transportd/full/0024-replay0905-v0159.2-re-export-the-patch-series-agains.patch
+patches/transportd/full/0025-feat-transportd-wire-the-X-CTD-Hookpoint-switch-v1-d.patch
+patches/transportd/full/0026-feat-transportd-implement-hookpoint-v3-passthrough-G.patch
+patches/transportd/full/0027-feat-transportd-align-v1-outbound-wire-shape-with-of.patch
+patches/transportd/full/0028-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
+patches/transportd/full/0029-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
+patches/transportd/full/0030-fix-transportd-make-v1-prompt_cache_key-follow-the-o.patch
+patches/transportd/full/0031-fix-transportd-carry-compact-only-x-codex-installati.patch
+patches/transportd/full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch
 patches/transportd/modified-paths.txt
 patches/transportd/series.yaml
 patches/transportd/tools/bin-verify.sh
