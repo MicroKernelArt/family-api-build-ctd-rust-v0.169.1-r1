@@ -82,7 +82,10 @@ pub async fn connect_responses_ws_v2(
             "responses WS requires a session snapshot",
         )
     })?;
-    let projection = metadata::build_projection(installation_id, session)?;
+    let projection = metadata::build_projection(
+        metadata::effective_installation_id(installation_id, ctx),
+        session,
+    )?;
 
     let handle = official_adapter::resolve_route_handle(ctx.proxy_kind, ctx.proxy_url.as_ref())?;
     let official_route = crate::transport::proxy::to_official_route(&handle.route);

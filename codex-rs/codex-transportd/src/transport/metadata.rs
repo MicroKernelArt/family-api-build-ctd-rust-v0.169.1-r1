@@ -339,7 +339,39 @@ pub fn rewrite_prompt_cache_key(obj: &mut Map<String, Value>, outbound_session_i
     }
 }
 
+/// 出站生效的 installation 标识：**承载通道优先**，否则回落到进程级单值。
+///
+/// - 承载值 = Go 侧按**上游账号**派生的安装标识（`resolveAccountInstallationID`：
+///   账号持久 device_id，否则按账号身份 namespace 确定性派生）⇒ 同一账号恒定、
+///   不同账号不同；
+/// - 回落值 = `ServerState.installation_id`（sidecar 启动时从
+///   `CODEX_HOME/installation_id` 解析的**进程级单值**，与上游账号无关）。
+///
+/// ★ 为什么必须在此处消费：v1 `/responses` 出站 body 的
+/// `client_metadata["x-codex-installation-id"]` 由 projection 注入，而 projection
+/// 过去只拿得到进程级单值 ⇒ 所有账号共用同一安装标识（跨账号关联向量）。承载
+/// 通道是该值到达 sidecar 的唯一途径（其余来源在 Go 侧 reserved 剥离时已被删）。
+///
+/// 空值/空白值不构成覆盖（与承载通道"空值不承载"同语义）；无效值不做格式校验
+/// ——installation 是**不透明**设备标识，官方客户端发的也是不透明值，形状校验
+/// 只会把上游不关心的差异变成 fail closed。
+pub fn effective_installation_id<'a>(
+    state_installation_id: &'a str,
+    ctx: &'a crate::contract::RequestContext,
+) -> &'a str {
+    ctx.carried_headers
+        .get(crate::contract::headers::CARRIED_INSTALLATION_ID_KEY)
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(state_installation_id)
+}
+
 /// 构造官方 metadata 投影（UUIDv7 校验在入口完成）。
+///
+/// `installation_id` 必须是**出站生效值**（承载优先），由调用点在进入本函数前用
+/// [`effective_installation_id`] 解析一次；本函数不再自行回落，避免出现第二个
+/// 判定点。
 pub fn build_projection(
     installation_id: &str,
     session: &SessionSnapshot,
@@ -389,6 +421,70 @@ pub fn big_int_roundtrip_safe(body: &Value) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::collections::BTreeMap;
+
+    /// ★ 安装标识的**账号隔离**闭环：承载通道（Go 按上游账号派生
+    /// `resolveAccountInstallationID`）优先于 sidecar 进程级单值，且投影真的把它
+    /// 注入 body `client_metadata`；缺失/空白值 ⇒ 回落进程级单值（旧行为不变）。
+    #[test]
+    fn carried_installation_id_overrides_process_level_value() {
+        let state_id = "471d380a-b8b9-40f9-9d49-ff282b17a6b9";
+        let account_a = "0442ca22-065d-4351-bb85-aacd0b38faaf";
+        let account_b = "0f3d1c76-9d1e-4f2a-8b31-5c7de2f41a90";
+        let session = || SessionSnapshot {
+            session_id: "0198f2b0-0000-7000-8000-000000000001".to_string(),
+            thread_id: "0198f2b0-0000-7000-8000-000000000002".to_string(),
+            window_id: "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+        };
+        let with_carried = |value: &str| crate::contract::RequestContext {
+            session: Some(session()),
+            carried_headers: BTreeMap::from([(
+                crate::contract::headers::CARRIED_INSTALLATION_ID_KEY.to_string(),
+                value.to_string(),
+            )]),
+            ..Default::default()
+        };
+
+        // ① 承载有值 ⇒ 承载获胜，且投影把它注入 body client_metadata
+        //    （v1 `/responses` 的安装标识就是这一位）。
+        let ctx = with_carried(account_a);
+        assert_eq!(effective_installation_id(state_id, &ctx), account_a);
+        let projection =
+            build_projection(effective_installation_id(state_id, &ctx), &session()).expect("projection");
+        assert_eq!(
+            projection
+                .client_metadata(false)
+                .get("x-codex-installation-id")
+                .map(String::as_str),
+            Some(account_a)
+        );
+
+        // ② 跨账号不同 ⇒ 投影值不同（这正是闭合掉的关联向量）。
+        let ctx_b = with_carried(account_b);
+        assert_eq!(effective_installation_id(state_id, &ctx_b), account_b);
+        assert_ne!(
+            build_projection(effective_installation_id(state_id, &ctx), &session())
+                .expect("projection")
+                .client_metadata(false),
+            build_projection(effective_installation_id(state_id, &ctx_b), &session())
+                .expect("projection")
+                .client_metadata(false)
+        );
+
+        // ③ 不承载 / 空值 / 纯空白 ⇒ 进程级单值（旧行为逐字不变）。
+        let bare = crate::contract::RequestContext {
+            session: Some(session()),
+            ..Default::default()
+        };
+        assert_eq!(effective_installation_id(state_id, &bare), state_id);
+        for blank in ["", "   "] {
+            assert_eq!(
+                effective_installation_id(state_id, &with_carried(blank)),
+                state_id,
+                "空值 {blank:?} 不构成覆盖"
+            );
+        }
+    }
 
     #[test]
     fn reserved_root_key_fails_closed() {

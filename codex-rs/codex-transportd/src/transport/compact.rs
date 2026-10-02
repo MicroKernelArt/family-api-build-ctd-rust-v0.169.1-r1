@@ -107,6 +107,10 @@ pub async fn execute_compact_raw(
             "compact requires a session snapshot",
         )
     })?;
+    // installation 身份 = 出站生效值（承载通道优先 ⇒ Go 按上游账号派生的值；
+    // 否则回落 sidecar 进程级单值）。**一次解析**，projection 与 installation 头
+    // 共用同一个值（头/体不得各自取值）。
+    let installation_id = metadata::effective_installation_id(installation_id, ctx);
     let projection = metadata::build_projection(installation_id, session)?;
 
     // 出站头：与 responses **同一权威**（`responses::outbound_headers()` 的
@@ -312,6 +316,54 @@ mod tests {
         let trailing_names: Vec<&str> = trailing.keys().map(http::HeaderName::as_str).collect();
         assert_eq!(trailing_names, vec!["originator", "user-agent"]);
         assert_eq!(trailing["originator"], "codex-tui");
+    }
+
+    /// ★ 安装标识的**生效值**闭环（v1 compact 腿）：承载的账号安装标识（Go
+    /// `resolveAccountInstallationID`）覆盖 sidecar 进程级单值，且**只有一份**
+    /// ——承载项被 `responses::outbound_headers` 消费掉，不会与注入的
+    /// installation 头重复（compact 官方确实发该头）。
+    #[test]
+    fn compact_installation_header_follows_effective_carried_value() {
+        let account_id = "0442ca22-065d-4351-bb85-aacd0b38faaf";
+        let mut ctx = ctx_fixture();
+        ctx.carried_headers.insert(
+            crate::contract::headers::CARRIED_INSTALLATION_ID_KEY.to_string(),
+            account_id.to_string(),
+        );
+        let effective = metadata::effective_installation_id("state-installation", &ctx);
+        assert_eq!(effective, account_id);
+        let projection = metadata::build_projection(
+            effective,
+            ctx.session.as_ref().expect("session snapshot"),
+        )
+        .expect("projection");
+        let (headers, _) = compact_outbound_headers(&ctx, effective, &projection);
+        assert_eq!(headers["x-codex-installation-id"], account_id);
+        assert_eq!(headers.get_all("x-codex-installation-id").iter().count(), 1);
+        // body 侧同一份值（头/体不得各自取值）。
+        assert_eq!(
+            projection
+                .client_metadata(false)
+                .get("x-codex-installation-id")
+                .map(String::as_str),
+            Some(account_id)
+        );
+
+        // 不承载 ⇒ 回落进程级单值，且头集形态逐字相同（只换值）。
+        let bare = ctx_fixture();
+        let fallback = metadata::effective_installation_id("state-installation", &bare);
+        assert_eq!(fallback, "state-installation");
+        let projection = metadata::build_projection(
+            fallback,
+            bare.session.as_ref().expect("session snapshot"),
+        )
+        .expect("projection");
+        let (baseline_headers, _) = compact_outbound_headers(&bare, fallback, &projection);
+        assert_eq!(baseline_headers["x-codex-installation-id"], "state-installation");
+        assert_eq!(baseline_headers.get_all("x-codex-installation-id").iter().count(), 1);
+        let names: Vec<&str> = baseline_headers.keys().map(http::HeaderName::as_str).collect();
+        let carried_names: Vec<&str> = headers.keys().map(http::HeaderName::as_str).collect();
+        assert_eq!(names, carried_names);
     }
 
     #[test]

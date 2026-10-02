@@ -63,6 +63,11 @@ pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
 /// upstream I/O 之前 fail closed。解析形态照抄 [`PROXY_KIND_HEADER`]。
 pub const HOOKPOINT_HEADER: &str = "x-ctd-hookpoint";
 
+/// 承载通道交付的 installation 身份头名（**消费型**白名单项，见
+/// [`CARRIED_HEADER_NAMES`] 的说明）。单一定义点：白名单、projection 取值与
+/// v1 出站头集的消费点都引用它，避免第三处字面量漂移。
+pub const CARRIED_INSTALLATION_ID_KEY: &str = "x-codex-installation-id";
+
 /// 允许承载到上游投影的官方 header 白名单（小写）。
 /// 与 Go 侧 `codex_transport_integration.go` 的 `codexCarriedHeaderNames`
 /// **逐字相等**；任何一侧增删都会让上游投影与 R-Go 直连发生漂移。
@@ -70,8 +75,6 @@ pub const HOOKPOINT_HEADER: &str = "x-ctd-hookpoint";
 /// 有意不纳入：
 /// - `version`：跨语言契约显式禁止携带，且由官方 provider 的 version header
 ///   （`CARGO_PKG_VERSION`）产出，承载它会让 sidecar 谎报自身构建版本；
-/// - `x-codex-installation-id`：installation 身份由 sidecar 从 account_key
-///   确定性派生；
 /// - `x-codex-parent-thread-id` / `x-openai-subagent`：subagent 作用域，
 ///   不在 R-Go 对拍范围。
 ///
@@ -83,6 +86,28 @@ pub const HOOKPOINT_HEADER: &str = "x-ctd-hookpoint";
 /// `user-agent` / `originator` 纳入：R-Go 侧是网关归一化值，R-CTD 侧由官方
 /// generator 在 sidecar 自身构建环境求值（os_info/arch/terminal、
 /// `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`），只有承载通道能对齐两者。
+///
+/// `x-codex-installation-id` 纳入（**消费型**，2026-10-02）：它的交付语义与
+/// 上表其余项**不同**——不是"投影覆盖/原样出站"，而是 projection 的
+/// `installation_id` **来源**（见 [`crate::transport::metadata::effective_installation_id`]）。
+///
+/// 原因：R-CTD 自身的 installation 身份是**进程级单值**
+/// （`bootstrap.rs::ensure_installation_id` → `ServerState.installation_id`），
+/// 与上游账号无关；而 v1 `/responses` 出站 body 的
+/// `client_metadata["x-codex-installation-id"]` 正是由它注入，Go 交付的账号值在
+/// 交付前被 reserved 剥离 ⇒ **所有账号共用同一安装标识**（跨账号关联向量）。
+/// Go 侧现已按上游账号派生该值（`resolveAccountInstallationID`），承载通道是它
+/// 到达 sidecar 的唯一途径。
+///
+/// ★ 该值**绝不出现在 v1 出站头集**：官方 `/responses` 不发这个头（账号隔离由
+/// body `client_metadata` 表达），发出会破坏已对齐的官方头构造序。见
+/// [`crate::transport::responses::outbound_headers`] 的消费点（`/responses`）与
+/// [`crate::transport::compact::compact_outbound_headers`] 的注入点（compact，
+/// 官方在那里确实发这个头）。
+///
+/// ★ 历史注释曾写「installation 身份由 sidecar 从 account_key 确定性派生」——
+/// **代码里不存在该派生**：`account_key` 只用于连接池 key
+/// （`transport/client_pool.rs`），实际来源始终是进程级单值。
 pub const CARRIED_HEADER_NAMES: &[&str] = &[
     "session-id",
     "thread-id",
@@ -95,6 +120,7 @@ pub const CARRIED_HEADER_NAMES: &[&str] = &[
     "openai-beta",
     "user-agent",
     "originator",
+    CARRIED_INSTALLATION_ID_KEY,
 ];
 
 /// 凭据硬护栏：这些名字绝不进入上游投影，出现即 fail closed
@@ -1124,11 +1150,10 @@ mod carried_header_tests {
 
     #[test]
     fn non_whitelisted_headers_are_dropped() {
-        // x-codex-installation-id / version 不在白名单：前者由 sidecar 从 account_key
-        // 派生，后者是官方 provider 自有，承载它们会造出 R-Go 没有的头。
+        // version 不在白名单：官方 provider 自有，承载它会造出 R-Go 没有的头。
         // x-client-request-id 相反——它在白名单里（官方不变式 == session-id，
         // R-Go 会发），必须被保留。
-        let raw = r#"{"x-codex-installation-id":"inst-1","version":"0.159.0","x-client-request-id":"0198f2b0-0000-7000-8000-000000000001","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
+        let raw = r#"{"version":"0.159.0","x-client-request-id":"0198f2b0-0000-7000-8000-000000000001","x-codex-window-id":"0198f2b0-0000-7000-8000-000000000002:1"}"#;
         let ctx = with_carried(raw).expect("parse");
         assert_eq!(ctx.carried_headers.len(), 2);
         assert_eq!(
@@ -1136,12 +1161,28 @@ mod carried_header_tests {
             Some("0198f2b0-0000-7000-8000-000000000002:1")
         );
         let outbound = ctx.carried_header_map();
-        assert!(outbound.get("x-codex-installation-id").is_none());
         assert!(outbound.get("version").is_none());
         assert_eq!(
             outbound.get("x-client-request-id").expect("carried"),
             "0198f2b0-0000-7000-8000-000000000001"
         );
+    }
+
+    /// ★ `x-codex-installation-id` 是**消费型**白名单项：承载通道必须收下它
+    /// （见 [`crate::transport::metadata::effective_installation_id`]），与
+    /// `version` 这类"白名单外键"语义**相反**——后者解析期即被丢弃。
+    #[test]
+    fn carried_installation_id_is_accepted_by_the_v1_channel() {
+        let raw = r#"{"x-codex-installation-id":"0442ca22-065d-4351-bb85-aacd0b38faaf"}"#;
+        let ctx = with_carried(raw).expect("parse");
+        assert_eq!(
+            ctx.carried_headers
+                .get("x-codex-installation-id")
+                .map(String::as_str),
+            Some("0442ca22-065d-4351-bb85-aacd0b38faaf")
+        );
+        assert!(CARRIED_HEADER_NAMES.contains(&"x-codex-installation-id"));
+        assert_eq!(CARRIED_INSTALLATION_ID_KEY, "x-codex-installation-id");
     }
 
     #[test]
@@ -1372,11 +1413,20 @@ mod v3_outbound_header_tests {
         for name in V3_AUDIT_HEADERS {
             assert!(V3_HEADER_ALLOWLIST.contains(name), "{name} 必须在白名单内");
         }
-        // v3 白名单 ⊇ v1 承载白名单（v3 是全集，v1 是子集），唯一例外是
-        // openai-beta（官方 HTTP POST 不发；R-Go 的 HTTP 策略同样剥离）。
+        // v3 白名单 ⊇ v1 承载白名单（v3 是全集，v1 是子集），两个例外：
+        //  - `openai-beta`：官方 HTTP POST 不发（R-Go 的 HTTP 策略同样剥离）；
+        //  - `x-codex-installation-id`：官方 `/responses` **不作为头**发（账号隔离
+        //    由 body `client_metadata` 表达）⇒ 它不在 `/responses` 的 18 头表里，
+        //    只在 compact 下经 [`V3_COMPACT_EXTRA_HEADER_NAMES`] 放行；v1 侧则是
+        //    承载通道的**消费型**项（projection 的 installation_id 来源）。
         for name in CARRIED_HEADER_NAMES {
             if *name == "openai-beta" {
                 assert!(!V3_HEADER_ALLOWLIST.contains(name));
+                continue;
+            }
+            if *name == CARRIED_INSTALLATION_ID_KEY {
+                assert!(!V3_HEADER_ALLOWLIST.contains(name));
+                assert!(V3_COMPACT_EXTRA_HEADER_NAMES.contains(name));
                 continue;
             }
             assert!(

@@ -101,6 +101,15 @@ pub const V1_TRAILING_HEADER_ORDER: &[&str] = &["originator", "user-agent"];
 ///
 /// 未列入两张表的头（如 `openai-beta`）按**确定性键序**追加在自派生段之后——
 /// 官方 HTTP POST 不发这些头（`docs/20 §3.2`），此处只保证「不丢、不乱序」。
+///
+/// ★ 唯一的**消费型**白名单项是 `x-codex-installation-id`
+/// （[`crate::contract::headers::CARRIED_INSTALLATION_ID_KEY`]）：它承载的是
+/// projection 的 `installation_id` **来源**（见
+/// [`metadata::effective_installation_id`]），不是出站头——官方 `/responses`
+/// 不发该头（账号隔离由 body `client_metadata` 表达）。因此这里显式消费掉，
+/// 绝不让它落进"未列名头按序追加"的分支。compact 侧的 installation 头由
+/// [`crate::transport::compact::compact_outbound_headers`] 单独注入（官方 legacy
+/// compact 确实发这个头）。
 pub fn outbound_headers(
     ctx: &RequestContext,
     projection: &codex_core::CodexResponsesMetadata,
@@ -115,6 +124,7 @@ pub fn outbound_headers(
             merged.insert(name.as_str().to_string(), value.clone());
         }
     }
+    merged.remove(crate::contract::headers::CARRIED_INSTALLATION_ID_KEY);
 
     let mut headers = HeaderMap::new();
     for name in V1_METADATA_HEADER_ORDER {
@@ -191,7 +201,10 @@ pub async fn execute_responses_raw(
             "responses requires a session snapshot",
         )
     })?;
-    let projection = metadata::build_projection(installation_id, session)?;
+    let projection = metadata::build_projection(
+        metadata::effective_installation_id(installation_id, ctx),
+        session,
+    )?;
     // F12（review）：直接拿所有权，消灭整树深拷贝（value 之后不再使用）。
     let serde_json::Value::Object(mut obj) = value else {
         return Err(LocalError::new(
@@ -507,6 +520,45 @@ mod tests {
         // 未列入官方 18 头的承载头不丢，且不插进官方前缀。
         assert_eq!(headers.get("openai-beta").unwrap(), "responses_multi_agent=2026-01-01");
         assert_eq!(observed.last().copied(), Some("openai-beta"));
+    }
+
+    /// ★ 消费型白名单项（`x-codex-installation-id`）的 v1 行为：
+    /// 承载它**不得**改变 v1 `/responses` 的出站头集——它是 projection 的
+    /// `installation_id` 来源，官方 `/responses` 不发这个头。
+    ///
+    /// 断言口径是"逐字不变"：同一 ctx 加上/不加该承载项，头名序列与尾段完全相同，
+    /// 且两侧都**没有**该头。
+    #[test]
+    fn carried_installation_id_is_consumed_and_never_emitted_on_v1_responses() {
+        let baseline = crate::contract::RequestContext {
+            session: Some(crate::contract::headers::SessionSnapshot {
+                session_id: "0198f2b0-0000-7000-8000-000000000001".to_string(),
+                thread_id: "0198f2b0-0000-7000-8000-000000000002".to_string(),
+                window_id: "0198f2b0-0000-7000-8000-000000000002:1".to_string(),
+            }),
+            carried_headers: carried_fixture(),
+            ..Default::default()
+        };
+        let mut with_installation = baseline.clone();
+        with_installation.carried_headers.insert(
+            crate::contract::headers::CARRIED_INSTALLATION_ID_KEY.to_string(),
+            "0442ca22-065d-4351-bb85-aacd0b38faaf".to_string(),
+        );
+
+        let (before, before_trailing) = outbound_headers(&baseline, &projection());
+        let (after, after_trailing) = outbound_headers(&with_installation, &projection());
+
+        let names = |map: &http::HeaderMap| -> Vec<String> {
+            map.keys().map(|name| name.as_str().to_string()).collect()
+        };
+        assert_eq!(names(&before), names(&after), "承载安装标识不得改变 v1 出站头集");
+        assert_eq!(
+            names(&before_trailing),
+            names(&after_trailing),
+            "承载安装标识不得改变尾段头集"
+        );
+        assert!(after.get("x-codex-installation-id").is_none());
+        assert!(after_trailing.get("x-codex-installation-id").is_none());
     }
 
     #[test]
