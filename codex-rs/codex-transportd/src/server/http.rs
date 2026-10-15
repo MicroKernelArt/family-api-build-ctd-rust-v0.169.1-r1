@@ -56,7 +56,7 @@ pub(crate) async fn handle_http_operation(
             "unknown",
         );
     }
-    if body.len() > limits::MAX_BODY_BYTES {
+    if body.len() > limits::max_body_bytes() {
         return local_error_response(&crate::contract::error::codes::body_too_large(), "unknown");
     }
 

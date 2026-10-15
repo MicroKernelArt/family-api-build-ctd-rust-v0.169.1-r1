@@ -228,7 +228,7 @@ fn router() -> Router<Arc<ServerState>> {
         )
         // F-012（round-3）：DefaultBodyLimit 必须在所有 .route() 之后添加，
         // 否则只包裹空 router、后续路由仍受 axum 默认 2 MiB 限制。
-        .layer(axum::extract::DefaultBodyLimit::max(limits::MAX_BODY_BYTES))
+        .layer(axum::extract::DefaultBodyLimit::max(limits::max_body_bytes()))
 }
 
 /// 根据 operation 执行对应原始请求，返回 X-CTD-Origin 标注的响应。
