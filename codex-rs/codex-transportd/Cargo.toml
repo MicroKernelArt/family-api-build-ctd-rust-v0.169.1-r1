@@ -5,7 +5,7 @@ rust-version = "1.89"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Codex transport sidecar: UDS-only closed operations over the official rust-v0.159.2 transport"
+description = "Codex transport sidecar: UDS-only closed operations over the official rust-v0.169.0 transport"
 publish = false
 
 [features]
