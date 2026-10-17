@@ -1,7 +1,7 @@
-From efb123fdd1a3a3518e2920b28282f7465073f5f6 Mon Sep 17 00:00:00 2001
+From 859c91e7e15d4a8e35539106fe23b0710e0a9cf3 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 22:27:59 +0800
-Subject: [PATCH 28/34] fix(transportd): align v1 compact outbound wire shape
+Subject: [PATCH 28/37] fix(transportd): align v1 compact outbound wire shape
  (zstd + official header order)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -59,7 +59,7 @@ Content-Transfer-Encoding: 8bit
  2 files changed, 525 insertions(+), 13 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/transport/responses_v3.rs b/codex-rs/codex-transportd/src/transport/responses_v3.rs
-index b4160ae..b465b06 100644
+index b4160ae3c..b465b06ec 100644
 --- a/codex-rs/codex-transportd/src/transport/responses_v3.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses_v3.rs
 @@ -7,8 +7,9 @@
@@ -476,7 +476,7 @@ index b4160ae..b465b06 100644
 +    }
  }
 diff --git a/codex-rs/codex-transportd/tests/capture_upstream_contract.rs b/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
-index 8c725ed..0827fb7 100644
+index 8c725ed61..0827fb795 100644
 --- a/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 +++ b/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 @@ -453,3 +453,195 @@ async fn v1_outbound_fidelity_worker() {
@@ -675,3 +675,6 @@ index 8c725ed..0827fb7 100644
 +        chunk.expect("mock stream chunk");
 +    }
 +}
+-- 
+2.48.1
+

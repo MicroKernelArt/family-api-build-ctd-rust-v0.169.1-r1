@@ -3,10 +3,10 @@
 > 本文件是 **build-proof**，不是最终 release candidate。HTTP candidate
 > （T-005）与最终 release candidate（T-010）digest 另行记录。
 
-## 冻结输入（当前基线：rust-v0.159.2）
+## 冻结输入（当前基线：rust-v0.163.0）
 
-- upstream commit：`ff6aec96948b70d94983af2641a6b67c94faeff5`
-- upstream `codex-rs/Cargo.lock` SHA-256：`4fab6fe99180e2b8f305bd4b33c1b4bd825e3fa4cdef1045be750843bd3d431e`
+- upstream commit：`83086188ae0614bd882818ff1aa23f3194962012`
+- upstream `codex-rs/Cargo.lock` SHA-256：`17cdd862471774ba7aef836aaf0a0a3ed76bd23e503b1fc7278c89d1f2719d03`
 - toolchain：`1.95.0`
 - base image（production/reference 相同 digest，Q-02 冻结）：
   `debian:trixie-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258`

@@ -1,7 +1,7 @@
-From d7330b7eb1f389ea16d94bcdd05ae1a7709845eb Mon Sep 17 00:00:00 2001
+From 429c6ca2546a84d6e77f0bed9cdc61d18b77d826 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 22:28:41 +0800
-Subject: [PATCH 29/34] fix(transportd): align v1 compact outbound wire shape
+Subject: [PATCH 29/37] fix(transportd): align v1 compact outbound wire shape
  (zstd + official header order)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -60,7 +60,7 @@ Content-Transfer-Encoding: 8bit
  3 files changed, 475 insertions(+), 10 deletions(-)
 
 diff --git a/codex-rs/codex-api/src/endpoint/responses.rs b/codex-rs/codex-api/src/endpoint/responses.rs
-index b70c373..db73361 100644
+index b70c37395..db73361a2 100644
 --- a/codex-rs/codex-api/src/endpoint/responses.rs
 +++ b/codex-rs/codex-api/src/endpoint/responses.rs
 @@ -244,19 +244,47 @@ impl<T: HttpTransport> ResponsesClient<T> {
@@ -113,7 +113,7 @@ index b70c373..db73361 100644
                  },
              )
 diff --git a/codex-rs/codex-api/src/endpoint/session.rs b/codex-rs/codex-api/src/endpoint/session.rs
-index 291aa2d..2517e58 100644
+index 291aa2dfa..2517e5840 100644
 --- a/codex-rs/codex-api/src/endpoint/session.rs
 +++ b/codex-rs/codex-api/src/endpoint/session.rs
 @@ -200,6 +200,63 @@ impl<T: HttpTransport> EndpointSession<T> {
@@ -181,7 +181,7 @@ index 291aa2d..2517e58 100644
      /// body 可逐块读取；attempt 次数真实。重试语义与
      /// [`Self::stream_encoded_json_with`] 一致。
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index 338604f..a08a9ce 100644
+index 338604f0c..a08a9cefc 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -21,6 +21,54 @@ use crate::transport::responses;
@@ -620,3 +620,6 @@ index 338604f..a08a9ce 100644
 +        assert_eq!(header_value(&head, "content-type"), Some("application/json"));
 +    }
  }
+-- 
+2.48.1
+

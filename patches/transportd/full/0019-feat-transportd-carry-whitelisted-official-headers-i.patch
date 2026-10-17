@@ -1,7 +1,7 @@
-From 872f86f1036008a4c0b4aa05d70a4ee55920bdcd Mon Sep 17 00:00:00 2001
+From 24f863ad061e951c0825495e7194f75aa06344e2 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 12:12:16 +0800
-Subject: [PATCH 19/34] feat(transportd): carry whitelisted official headers
+Subject: [PATCH 19/37] feat(transportd): carry whitelisted official headers
  into the upstream projection
 
 R-CTD (rust_sidecar) previously rebuilt every upstream request from a blank
@@ -44,7 +44,7 @@ Verified: cargo check -p codex-transportd --all-targets; cargo test
  5 files changed, 274 insertions(+)
 
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index 42bf688..bdce58e 100644
+index 42bf688f8..bdce58e5d 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -3,7 +3,13 @@
@@ -312,7 +312,7 @@ index 42bf688..bdce58e 100644
  mod deadline_tests {
      use super::*;
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index 6358f12..338604f 100644
+index 6358f124b..338604f0c 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -66,6 +66,8 @@ pub async fn execute_compact_raw(
@@ -325,7 +325,7 @@ index 6358f12..338604f 100644
      // capture 旁路（capture-r1）：请求体校验通过后、发上游前入队；
      // 上游失败早退时句柄 Drop → 诚实 .resp.err 终态。
 diff --git a/codex-rs/codex-transportd/src/transport/metadata.rs b/codex-rs/codex-transportd/src/transport/metadata.rs
-index b610877..e0c9a6b 100644
+index b610877e7..e0c9a6bf2 100644
 --- a/codex-rs/codex-transportd/src/transport/metadata.rs
 +++ b/codex-rs/codex-transportd/src/transport/metadata.rs
 @@ -205,6 +205,40 @@ pub fn inject_official_client_metadata(
@@ -370,7 +370,7 @@ index b610877..e0c9a6b 100644
  pub fn build_projection(
      installation_id: &str,
 diff --git a/codex-rs/codex-transportd/src/transport/responses.rs b/codex-rs/codex-transportd/src/transport/responses.rs
-index 2259f1e..6c7f77d 100644
+index 2259f1e8b..6c7f77dd3 100644
 --- a/codex-rs/codex-transportd/src/transport/responses.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses.rs
 @@ -110,10 +110,20 @@ pub async fn execute_responses_raw(
@@ -395,7 +395,7 @@ index 2259f1e..6c7f77d 100644
      // capture 旁路（capture-r1）：请求体校验通过后、发上游前入队
      // （设计 §6.3）。白名单不匹配 = None，零成本原路径。句柄在上游失败
 diff --git a/codex-rs/codex-transportd/src/transport/websocket.rs b/codex-rs/codex-transportd/src/transport/websocket.rs
-index 82ccb5a..c68c639 100644
+index 82ccb5a6b..c68c63919 100644
 --- a/codex-rs/codex-transportd/src/transport/websocket.rs
 +++ b/codex-rs/codex-transportd/src/transport/websocket.rs
 @@ -51,6 +51,12 @@ pub fn build_ws_headers(
@@ -411,3 +411,6 @@ index 82ccb5a..c68c639 100644
      headers
  }
  
+-- 
+2.48.1
+

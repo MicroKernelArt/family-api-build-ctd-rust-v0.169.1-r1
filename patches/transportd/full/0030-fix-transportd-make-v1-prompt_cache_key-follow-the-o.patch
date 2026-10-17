@@ -1,7 +1,7 @@
-From 800aa5acbc865347d5b8676b9cdb9d45cfa64a39 Mon Sep 17 00:00:00 2001
+From 76c63c2cc016126ef25ee57f5b322510bda13b4c Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 00:04:01 +0800
-Subject: [PATCH 30/34] fix(transportd): make v1 prompt_cache_key follow the
+Subject: [PATCH 30/37] fix(transportd): make v1 prompt_cache_key follow the
  outbound session-id (I8)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -34,7 +34,7 @@ body 路径级 diff = ['/prompt_cache_key']，不带该键的入站 body 逐字�
  2 files changed, 193 insertions(+)
 
 diff --git a/codex-rs/codex-transportd/src/transport/metadata.rs b/codex-rs/codex-transportd/src/transport/metadata.rs
-index 406bab2..cf866d6 100644
+index 406bab294..cf866d618 100644
 --- a/codex-rs/codex-transportd/src/transport/metadata.rs
 +++ b/codex-rs/codex-transportd/src/transport/metadata.rs
 @@ -305,6 +305,40 @@ pub fn inject_derived_client_metadata(
@@ -149,7 +149,7 @@ index 406bab2..cf866d6 100644
  
  #[cfg(test)]
 diff --git a/codex-rs/codex-transportd/src/transport/responses.rs b/codex-rs/codex-transportd/src/transport/responses.rs
-index 1b050c2..b249503 100644
+index 1b050c2c9..b24950361 100644
 --- a/codex-rs/codex-transportd/src/transport/responses.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses.rs
 @@ -226,6 +226,19 @@ pub async fn execute_responses_raw(
@@ -270,3 +270,6 @@ index 1b050c2..b249503 100644
      #[test]
      fn invalid_session_fails_before_io() {
          let err = CodexResponsesMetadata::try_for_transport(
+-- 
+2.48.1
+

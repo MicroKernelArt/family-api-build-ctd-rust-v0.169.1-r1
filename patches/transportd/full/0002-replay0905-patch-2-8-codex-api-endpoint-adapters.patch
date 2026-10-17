@@ -1,7 +1,7 @@
-From d1a7705922c37fc214f9f23c837349b9e2830337 Mon Sep 17 00:00:00 2001
+From bb7a46bee6b44121e51e5ac4a51846326a912a8c Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 02/34] replay0905-patch(2/8): codex-api endpoint adapters
+Subject: [PATCH 02/37] replay0905-patch(2/8): codex-api endpoint adapters
 
 (cherry picked from commit 49cde2c56bf56639d18c3a94d057f10147963c28)
 ---
@@ -15,7 +15,7 @@ Subject: [PATCH 02/34] replay0905-patch(2/8): codex-api endpoint adapters
  7 files changed, 363 insertions(+), 4 deletions(-)
 
 diff --git a/codex-rs/codex-api/src/endpoint/models.rs b/codex-rs/codex-api/src/endpoint/models.rs
-index c00bc01..7231569 100644
+index c00bc0115..723156981 100644
 --- a/codex-rs/codex-api/src/endpoint/models.rs
 +++ b/codex-rs/codex-api/src/endpoint/models.rs
 @@ -67,6 +67,28 @@ impl<T: HttpTransport> ModelsClient<T> {
@@ -48,7 +48,7 @@ index c00bc01..7231569 100644
          &self,
          request_url: String,
 diff --git a/codex-rs/codex-api/src/endpoint/responses.rs b/codex-rs/codex-api/src/endpoint/responses.rs
-index 9c41a80..97b46e9 100644
+index 9c41a802e..97b46e9f8 100644
 --- a/codex-rs/codex-api/src/endpoint/responses.rs
 +++ b/codex-rs/codex-api/src/endpoint/responses.rs
 @@ -4,10 +4,10 @@ use crate::common::ResponsesApiRequest;
@@ -158,20 +158,20 @@ index 9c41a80..97b46e9 100644
          &self,
          body: EncodedJsonBody,
 diff --git a/codex-rs/codex-api/src/endpoint/responses_websocket.rs b/codex-rs/codex-api/src/endpoint/responses_websocket.rs
-index 7f3ebd7..15e7960 100644
+index 77ed1ea60..54efe2130 100644
 --- a/codex-rs/codex-api/src/endpoint/responses_websocket.rs
 +++ b/codex-rs/codex-api/src/endpoint/responses_websocket.rs
-@@ -14,6 +14,8 @@ use crate::sse::process_responses_event;
+@@ -15,6 +15,8 @@ use crate::sse::process_responses_event;
  use crate::telemetry::WebsocketTelemetry;
  use codex_client::TransportError;
  use codex_http_client::HttpClientFactory;
 +use codex_http_client::OutboundProxyPolicy;
 +use codex_http_client::OutboundProxyRoute;
+ use codex_http_client::RetryAfter;
  use codex_websocket_client::WebSocketConnection;
  use codex_websocket_client::WebSocketConnector;
- use futures::FutureExt;
-@@ -418,6 +420,115 @@ impl ResponsesWebsocketClient {
-         ))
+@@ -445,6 +447,115 @@ impl ResponsesWebsocketClient {
+         .await
      }
  
 +    /// Connects the Responses WebSocket using an explicit sidecar-selected
@@ -287,7 +287,7 @@ index 7f3ebd7..15e7960 100644
      ///
      /// The probe uses the same URL construction, headers, authentication, TLS,
 diff --git a/codex-rs/codex-api/src/endpoint/search.rs b/codex-rs/codex-api/src/endpoint/search.rs
-index 2de48fe..25e3380 100644
+index 502e264b4..0e8d81586 100644
 --- a/codex-rs/codex-api/src/endpoint/search.rs
 +++ b/codex-rs/codex-api/src/endpoint/search.rs
 @@ -31,6 +31,23 @@ impl<T: HttpTransport> SearchClient<T> {
@@ -315,7 +315,7 @@ index 2de48fe..25e3380 100644
          &self,
          request: &SearchRequest,
 diff --git a/codex-rs/codex-api/src/endpoint/session.rs b/codex-rs/codex-api/src/endpoint/session.rs
-index 7849225..0426013 100644
+index 7849225b5..04260134f 100644
 --- a/codex-rs/codex-api/src/endpoint/session.rs
 +++ b/codex-rs/codex-api/src/endpoint/session.rs
 @@ -2,8 +2,10 @@ use crate::auth::SharedAuthProvider;
@@ -422,7 +422,7 @@ index 7849225..0426013 100644
 +    }
  }
 diff --git a/codex-rs/codex-api/src/telemetry.rs b/codex-rs/codex-api/src/telemetry.rs
-index 91918a6..fd7896f 100644
+index 91918a65b..fd7896fd7 100644
 --- a/codex-rs/codex-api/src/telemetry.rs
 +++ b/codex-rs/codex-api/src/telemetry.rs
 @@ -1,4 +1,5 @@
@@ -482,7 +482,7 @@ index 91918a6..fd7896f 100644
 +    .await
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index cd982c6..12eb4ce 100644
+index cd982c627..12eb4ce48 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -1,6 +1,6 @@
@@ -508,3 +508,6 @@ index cd982c6..12eb4ce 100644
          .await
          .map_err(|err| responses::map_api_error(err, "compact"))?;
      let response = outcome.value;
+-- 
+2.48.1
+

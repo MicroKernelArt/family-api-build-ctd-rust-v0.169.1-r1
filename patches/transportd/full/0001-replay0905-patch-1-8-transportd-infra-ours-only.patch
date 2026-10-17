@@ -1,7 +1,7 @@
-From 86af8ae437d735cf195003e1d63bdcfc1640e389 Mon Sep 17 00:00:00 2001
+From a84c4955b3d6ed44f362ef8a4ec16d9e6826165d Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 01/34] replay0905-patch(1/8): transportd + infra (ours-only)
+Subject: [PATCH 01/37] replay0905-patch(1/8): transportd + infra (ours-only)
 
 (cherry picked from commit 12066620d4536cbbdacf71bea66692fe8c1572e1)
 ---
@@ -14,7 +14,7 @@ Subject: [PATCH 01/34] replay0905-patch(1/8): transportd + infra (ours-only)
  UPSTREAM_MERGE.md                             | 154 ++++
  UPSTREAM_UPGRADE.md                           |  34 +
  WIRE_COMPATIBILITY.md                         |  73 ++
- codex-rs/Cargo.lock                           | 351 ++++----
+ codex-rs/Cargo.lock                           | 707 +++++++--------
  codex-rs/Cargo.toml                           |   3 +-
  codex-rs/codex-transportd/BUILD_PROOF.md      |  31 +
  codex-rs/codex-transportd/Cargo.toml          |  59 ++
@@ -167,7 +167,7 @@ Subject: [PATCH 01/34] replay0905-patch(1/8): transportd + infra (ours-only)
  replay/worker-ci.json                         |   7 +
  scripts/installation_lifecycle.sh             |  92 ++
  sidecar-image-receipt.txt                     |  12 +
- 162 files changed, 14271 insertions(+), 159 deletions(-)
+ 162 files changed, 14400 insertions(+), 386 deletions(-)
  create mode 100644 .dockerignore
  create mode 100644 PATCHES.md
  create mode 100644 RUNBOOK.md
@@ -330,14 +330,14 @@ Subject: [PATCH 01/34] replay0905-patch(1/8): transportd + infra (ours-only)
 
 diff --git a/.dockerignore b/.dockerignore
 new file mode 100644
-index 0000000..1833807
+index 000000000..18338078a
 --- /dev/null
 +++ b/.dockerignore
 @@ -0,0 +1,2 @@
 +target/
 +codex-rs/target/
 diff --git a/.gitignore b/.gitignore
-index dbcd863..8b44255 100644
+index dbcd86331..8b4425572 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -94,3 +94,5 @@ CHANGELOG.ignore.md
@@ -348,7 +348,7 @@ index dbcd863..8b44255 100644
 +deploy/vendor-debs.lock
 diff --git a/PATCHES.md b/PATCHES.md
 new file mode 100644
-index 0000000..34cbe23
+index 000000000..34cbe2346
 --- /dev/null
 +++ b/PATCHES.md
 @@ -0,0 +1,41 @@
@@ -395,7 +395,7 @@ index 0000000..34cbe23
 +wire gate（T-013）。
 diff --git a/RUNBOOK.md b/RUNBOOK.md
 new file mode 100644
-index 0000000..918a389
+index 000000000..918a389e1
 --- /dev/null
 +++ b/RUNBOOK.md
 @@ -0,0 +1,103 @@
@@ -504,7 +504,7 @@ index 0000000..918a389
 +```
 diff --git a/SBOM.md b/SBOM.md
 new file mode 100644
-index 0000000..bc4cbce
+index 000000000..bc4cbce40
 --- /dev/null
 +++ b/SBOM.md
 @@ -0,0 +1,33 @@
@@ -543,7 +543,7 @@ index 0000000..bc4cbce
 +- CI 从 clean clone 重建并比对 build metadata 与依赖图。
 diff --git a/UPSTREAM_BASE.md b/UPSTREAM_BASE.md
 new file mode 100644
-index 0000000..de6e1a8
+index 000000000..de6e1a8c6
 --- /dev/null
 +++ b/UPSTREAM_BASE.md
 @@ -0,0 +1,24 @@
@@ -573,7 +573,7 @@ index 0000000..de6e1a8
 +CP-002 gate。
 diff --git a/UPSTREAM_MERGE.md b/UPSTREAM_MERGE.md
 new file mode 100644
-index 0000000..59d641c
+index 000000000..59d641c6c
 --- /dev/null
 +++ b/UPSTREAM_MERGE.md
 @@ -0,0 +1,154 @@
@@ -733,7 +733,7 @@ index 0000000..59d641c
 +| **合计** | **2-5h/轮** | 首次高(建立记忆),后续趋向 1-2h |
 diff --git a/UPSTREAM_UPGRADE.md b/UPSTREAM_UPGRADE.md
 new file mode 100644
-index 0000000..1139e70
+index 000000000..1139e7095
 --- /dev/null
 +++ b/UPSTREAM_UPGRADE.md
 @@ -0,0 +1,34 @@
@@ -773,7 +773,7 @@ index 0000000..1139e70
 +- 跳过 contract/wire 直接 promote image。
 diff --git a/WIRE_COMPATIBILITY.md b/WIRE_COMPATIBILITY.md
 new file mode 100644
-index 0000000..79d1b08
+index 000000000..79d1b08b8
 --- /dev/null
 +++ b/WIRE_COMPATIBILITY.md
 @@ -0,0 +1,73 @@
@@ -851,10 +851,87 @@ index 0000000..79d1b08
 +  完成前 capability 不视为 release-ready
 +- 任意 rebuild 改变 fork commit/lock hash 后，旧 wire/canary receipt 自动失效
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index a24fb43..0ce8434 100644
+index 72658b908..0ce8434eb 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -268,7 +268,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
+@@ -64,31 +64,25 @@ dependencies = [
+ 
+ [[package]]
+ name = "age"
+-version = "0.12.1"
++version = "0.11.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "fd290633c2482479f70f6d1d96ae0e9f52c6a26cd5859edd47ee1fe33fc89f26"
++checksum = "bf640be7658959746f1f0f2faab798f6098a9436a8e18e148d18bc9875e13c4b"
+ dependencies = [
+  "age-core",
+- "base64 0.22.1",
++ "base64 0.21.7",
+  "bech32",
+  "chacha20poly1305",
+- "cipher",
+  "cookie-factory",
+- "hkdf 0.12.4",
+  "hmac 0.12.1",
+- "hpke",
+  "i18n-embed",
+  "i18n-embed-fl",
+  "lazy_static",
+- "ml-kem",
+- "nom 8.0.0",
+- "p256",
++ "nom 7.1.3",
+  "pin-project",
+  "rand 0.8.6",
+  "rust-embed",
+  "scrypt",
+  "sha2 0.10.9",
+- "sha3",
+  "subtle",
+  "x25519-dalek",
+  "zeroize",
+@@ -96,18 +90,16 @@ dependencies = [
+ 
+ [[package]]
+ name = "age-core"
+-version = "0.12.0"
++version = "0.11.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "01d4375964d1501e5f1b32aef2ead573913893ff238448d4e9fdf1522d828656"
++checksum = "e2bf6a89c984ca9d850913ece2da39e1d200563b0a94b002b253beee4c5acf99"
+ dependencies = [
+- "base64 0.22.1",
+- "bech32",
++ "base64 0.21.7",
+  "chacha20poly1305",
+  "cookie-factory",
+  "hkdf 0.12.4",
+- "hpke",
+  "io_tee",
+- "nom 8.0.0",
++ "nom 7.1.3",
+  "rand 0.8.6",
+  "secrecy",
+  "sha2 0.10.9",
+@@ -254,7 +246,7 @@ version = "1.1.5"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
+ dependencies = [
+- "windows-sys 0.60.2",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -265,7 +257,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
+ dependencies = [
+  "anstyle",
+  "once_cell_polyfill",
+- "windows-sys 0.60.2",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -276,7 +268,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
  
  [[package]]
  name = "app_test_support"
@@ -863,7 +940,41 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -1893,7 +1893,7 @@ dependencies = [
+@@ -1211,6 +1203,12 @@ version = "0.2.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
+ 
++[[package]]
++name = "base64"
++version = "0.21.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
++
+ [[package]]
+ name = "base64"
+ version = "0.22.1"
+@@ -1250,9 +1248,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "bech32"
+-version = "0.11.1"
++version = "0.9.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
++checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
+ 
+ [[package]]
+ name = "beef"
+@@ -1284,7 +1282,7 @@ dependencies = [
+  "proc-macro2",
+  "quote",
+  "regex",
+- "rustc-hash",
++ "rustc-hash 2.1.1",
+  "shlex",
+  "syn 2.0.117",
+ ]
+@@ -1895,7 +1893,7 @@ dependencies = [
  
  [[package]]
  name = "codex-agent-extension"
@@ -872,7 +983,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-core",
-@@ -1905,7 +1905,7 @@ dependencies = [
+@@ -1907,7 +1905,7 @@ dependencies = [
  
  [[package]]
  name = "codex-agent-graph-store"
@@ -881,7 +992,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "codex-state",
-@@ -1920,7 +1920,7 @@ dependencies = [
+@@ -1922,7 +1920,7 @@ dependencies = [
  
  [[package]]
  name = "codex-agent-identity"
@@ -890,7 +1001,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -1940,7 +1940,7 @@ dependencies = [
+@@ -1942,12 +1940,11 @@ dependencies = [
  
  [[package]]
  name = "codex-agent-message-board-client"
@@ -899,7 +1010,20 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -1960,7 +1960,7 @@ dependencies = [
+  "codex-agent-message-board-extension",
+- "codex-extension-api",
+  "codex-http-client",
+  "codex-protocol",
+  "eventsource-stream",
+@@ -1957,15 +1954,13 @@ dependencies = [
+  "serde",
+  "serde_json",
+  "tokio",
+- "tokio-util",
+- "tracing",
+  "url",
+  "wiremock",
+ ]
  
  [[package]]
  name = "codex-agent-message-board-extension"
@@ -908,7 +1032,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "caseless",
-@@ -1983,7 +1983,7 @@ dependencies = [
+@@ -1988,7 +1983,7 @@ dependencies = [
  
  [[package]]
  name = "codex-agent-roles"
@@ -917,7 +1041,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-config",
   "codex-file-system",
-@@ -1996,7 +1996,7 @@ dependencies = [
+@@ -2001,7 +1996,7 @@ dependencies = [
  
  [[package]]
  name = "codex-analytics"
@@ -926,7 +1050,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-app-server-protocol",
   "codex-git-utils",
-@@ -2018,7 +2018,7 @@ dependencies = [
+@@ -2012,7 +2007,6 @@ dependencies = [
+  "codex-protocol",
+  "codex-state",
+  "codex-utils-absolute-path",
+- "codex-utils-path-uri",
+  "os_info",
+  "pretty_assertions",
+  "serde",
+@@ -2024,18 +2018,16 @@ dependencies = [
  
  [[package]]
  name = "codex-ansi-escape"
@@ -934,8 +1066,11 @@ index a24fb43..0ce8434 100644
 +version = "0.159.0"
  dependencies = [
   "ansi-to-tui",
+- "pretty_assertions",
   "ratatui",
-@@ -2027,7 +2027,7 @@ dependencies = [
+  "tracing",
+- "tracing-subscriber",
+ ]
  
  [[package]]
  name = "codex-api"
@@ -944,7 +1079,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "assert_matches",
-@@ -2065,7 +2065,7 @@ dependencies = [
+@@ -2073,7 +2065,7 @@ dependencies = [
  
  [[package]]
  name = "codex-app-server"
@@ -953,7 +1088,16 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "app_test_support",
-@@ -2177,7 +2177,7 @@ dependencies = [
+@@ -2152,8 +2144,6 @@ dependencies = [
+  "futures",
+  "hmac 0.12.1",
+  "http 1.4.0",
+- "keyring",
+- "libc",
+  "opentelemetry",
+  "opentelemetry_sdk",
+  "pretty_assertions",
+@@ -2187,7 +2177,7 @@ dependencies = [
  
  [[package]]
  name = "codex-app-server-client"
@@ -962,7 +1106,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-app-server",
   "codex-app-server-protocol",
-@@ -2204,7 +2204,7 @@ dependencies = [
+@@ -2214,7 +2204,7 @@ dependencies = [
  
  [[package]]
  name = "codex-app-server-daemon"
@@ -971,7 +1115,21 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "blake3",
-@@ -2229,7 +2229,7 @@ dependencies = [
+@@ -2223,7 +2213,6 @@ dependencies = [
+  "codex-http-client",
+  "codex-install-context",
+  "codex-uds",
+- "codex-utils-cargo-bin",
+  "codex-utils-home-dir",
+  "futures",
+  "libc",
+@@ -2235,12 +2224,12 @@ dependencies = [
+  "tokio",
+  "tokio-tungstenite",
+  "tracing",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-app-server-protocol"
@@ -980,7 +1138,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-app-server-protocol-noop-macros",
-@@ -2263,11 +2263,11 @@ dependencies = [
+@@ -2274,11 +2263,11 @@ dependencies = [
  
  [[package]]
  name = "codex-app-server-protocol-noop-macros"
@@ -994,7 +1152,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -2289,7 +2289,7 @@ dependencies = [
+@@ -2300,7 +2289,7 @@ dependencies = [
  
  [[package]]
  name = "codex-app-server-transport"
@@ -1003,7 +1161,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "axum",
   "base64 0.22.1",
-@@ -2331,7 +2331,7 @@ dependencies = [
+@@ -2342,7 +2331,7 @@ dependencies = [
  
  [[package]]
  name = "codex-apply-patch"
@@ -1012,7 +1170,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "assert_cmd",
-@@ -2351,7 +2351,7 @@ dependencies = [
+@@ -2362,7 +2351,7 @@ dependencies = [
  
  [[package]]
  name = "codex-arg0"
@@ -1021,7 +1179,17 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-apply-patch",
-@@ -2374,7 +2374,7 @@ dependencies = [
+@@ -2371,8 +2360,8 @@ dependencies = [
+  "codex-install-context",
+  "codex-linux-sandbox",
+  "codex-sandboxing",
++ "codex-shell-escalation",
+  "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "codex-utils-home-dir",
+  "codex-utils-pty",
+  "codex-windows-sandbox",
+@@ -2385,7 +2374,7 @@ dependencies = [
  
  [[package]]
  name = "codex-async-utils"
@@ -1030,7 +1198,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "pretty_assertions",
   "rand 0.9.3",
-@@ -2384,7 +2384,7 @@ dependencies = [
+@@ -2395,7 +2384,7 @@ dependencies = [
  
  [[package]]
  name = "codex-attachment-store"
@@ -1039,7 +1207,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "pretty_assertions",
   "serde",
-@@ -2394,7 +2394,7 @@ dependencies = [
+@@ -2405,7 +2394,7 @@ dependencies = [
  
  [[package]]
  name = "codex-aws-auth"
@@ -1048,7 +1216,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "aws-config",
   "aws-credential-types",
-@@ -2420,7 +2420,7 @@ dependencies = [
+@@ -2431,7 +2420,7 @@ dependencies = [
  
  [[package]]
  name = "codex-backend-client"
@@ -1057,7 +1225,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-api",
-@@ -2440,7 +2440,7 @@ dependencies = [
+@@ -2451,7 +2440,7 @@ dependencies = [
  
  [[package]]
  name = "codex-backend-openapi-models"
@@ -1066,7 +1234,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "serde",
   "serde_json",
-@@ -2449,7 +2449,7 @@ dependencies = [
+@@ -2460,7 +2449,7 @@ dependencies = [
  
  [[package]]
  name = "codex-build-info"
@@ -1075,7 +1243,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-install-context",
   "pretty_assertions",
-@@ -2462,7 +2462,7 @@ dependencies = [
+@@ -2473,7 +2462,7 @@ dependencies = [
  
  [[package]]
  name = "codex-bwrap"
@@ -1084,7 +1252,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "cc",
   "libc",
-@@ -2471,7 +2471,7 @@ dependencies = [
+@@ -2482,7 +2471,7 @@ dependencies = [
  
  [[package]]
  name = "codex-chatgpt"
@@ -1093,7 +1261,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -2493,7 +2493,7 @@ dependencies = [
+@@ -2504,7 +2493,7 @@ dependencies = [
  
  [[package]]
  name = "codex-cli"
@@ -1102,7 +1270,23 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "app_test_support",
-@@ -2594,7 +2594,7 @@ dependencies = [
+@@ -2515,7 +2504,6 @@ dependencies = [
+  "clap_complete",
+  "codex-api",
+  "codex-app-server",
+- "codex-app-server-client",
+  "codex-app-server-daemon",
+  "codex-app-server-protocol",
+  "codex-app-server-test-client",
+@@ -2599,14 +2587,14 @@ dependencies = [
+  "url",
+  "vt100",
+  "which 8.0.0",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+  "wiremock",
+  "zstd",
+ ]
  
  [[package]]
  name = "codex-client"
@@ -1111,8 +1295,34 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-http-client",
   "eventsource-stream",
-@@ -2608,7 +2608,7 @@ dependencies = [
+@@ -2618,33 +2606,9 @@ dependencies = [
+  "url",
+ ]
  
+-[[package]]
+-name = "codex-cloud-client"
+-version = "0.0.0"
+-dependencies = [
+- "anyhow",
+- "async-stream",
+- "bytes",
+- "codex-http-client",
+- "futures",
+- "http 1.4.0",
+- "http-body-util",
+- "hyper",
+- "hyper-util",
+- "pretty_assertions",
+- "prost",
+- "thiserror 2.0.18",
+- "tokio",
+- "tokio-rustls",
+- "tonic",
+- "tonic-prost",
+- "tower",
+- "url",
+-]
+-
  [[package]]
  name = "codex-cloud-config"
 -version = "0.0.0"
@@ -1120,7 +1330,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "chrono",
-@@ -2634,7 +2634,7 @@ dependencies = [
+@@ -2670,7 +2634,7 @@ dependencies = [
  
  [[package]]
  name = "codex-cloud-tasks"
@@ -1129,7 +1339,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -2667,7 +2667,7 @@ dependencies = [
+@@ -2703,7 +2667,7 @@ dependencies = [
  
  [[package]]
  name = "codex-cloud-tasks-client"
@@ -1138,7 +1348,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -2682,7 +2682,7 @@ dependencies = [
+@@ -2718,7 +2682,7 @@ dependencies = [
  
  [[package]]
  name = "codex-cloud-tasks-mock-client"
@@ -1147,7 +1357,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "chrono",
   "codex-cloud-tasks-client",
-@@ -2691,7 +2691,7 @@ dependencies = [
+@@ -2727,7 +2691,7 @@ dependencies = [
  
  [[package]]
  name = "codex-code-mode"
@@ -1156,7 +1366,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-code-mode-protocol",
   "codex-http-client",
-@@ -2714,7 +2714,7 @@ dependencies = [
+@@ -2738,7 +2702,6 @@ dependencies = [
+  "http-body-util",
+  "pretty_assertions",
+  "prost",
+- "rand 0.9.3",
+  "reqwest 0.12.28",
+  "serde_json",
+  "tokio",
+@@ -2751,7 +2714,7 @@ dependencies = [
  
  [[package]]
  name = "codex-code-mode-host"
@@ -1165,7 +1383,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "axum",
-@@ -2743,7 +2743,7 @@ dependencies = [
+@@ -2780,7 +2743,7 @@ dependencies = [
  
  [[package]]
  name = "codex-code-mode-protocol"
@@ -1174,7 +1392,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "glob",
-@@ -2761,7 +2761,7 @@ dependencies = [
+@@ -2798,7 +2761,7 @@ dependencies = [
  
  [[package]]
  name = "codex-code-mode-runtime"
@@ -1183,7 +1401,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-code-mode-protocol",
-@@ -2779,11 +2779,11 @@ dependencies = [
+@@ -2816,11 +2779,11 @@ dependencies = [
  
  [[package]]
  name = "codex-collaboration-mode-templates"
@@ -1197,7 +1415,13 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -2833,7 +2833,7 @@ dependencies = [
+@@ -2865,12 +2828,12 @@ dependencies = [
+  "tracing",
+  "wildmatch",
+  "winapi-util",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-config-schema"
@@ -1206,7 +1430,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -2842,7 +2842,7 @@ dependencies = [
+@@ -2879,7 +2842,7 @@ dependencies = [
  
  [[package]]
  name = "codex-connectors"
@@ -1215,7 +1439,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "arc-swap",
-@@ -2864,7 +2864,7 @@ dependencies = [
+@@ -2901,7 +2864,7 @@ dependencies = [
  
  [[package]]
  name = "codex-connectors-extension"
@@ -1224,7 +1448,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-connectors",
   "codex-core-plugins",
-@@ -2878,7 +2878,7 @@ dependencies = [
+@@ -2915,7 +2878,7 @@ dependencies = [
  
  [[package]]
  name = "codex-context-fragments"
@@ -1233,7 +1457,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "codex-utils-string",
-@@ -2888,7 +2888,7 @@ dependencies = [
+@@ -2925,7 +2888,7 @@ dependencies = [
  
  [[package]]
  name = "codex-core"
@@ -1242,7 +1466,63 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "arc-swap",
-@@ -3026,7 +3026,7 @@ dependencies = [
+@@ -2936,7 +2899,6 @@ dependencies = [
+  "bm25",
+  "chrono",
+  "codex-agent-graph-store",
+- "codex-agent-message-board-client",
+  "codex-agent-message-board-extension",
+  "codex-agent-roles",
+  "codex-analytics",
+@@ -2971,7 +2933,6 @@ dependencies = [
+  "codex-install-context",
+  "codex-login",
+  "codex-mcp",
+- "codex-mcp-extension",
+  "codex-memories-read",
+  "codex-model-provider",
+  "codex-model-provider-info",
+@@ -2987,6 +2948,7 @@ dependencies = [
+  "codex-rollout-trace",
+  "codex-sandboxing",
+  "codex-shell-command",
++ "codex-shell-escalation",
+  "codex-skills",
+  "codex-skills-extension",
+  "codex-state",
+@@ -3012,7 +2974,6 @@ dependencies = [
+  "codex-utils-string",
+  "codex-web-search-extension",
+  "codex-windows-sandbox",
+- "codex-windows-sandbox-test-support",
+  "core_test_support",
+  "ctor 0.6.3",
+  "dirs",
+@@ -3020,7 +2981,6 @@ dependencies = [
+  "eventsource-stream",
+  "futures",
+  "http 1.4.0",
+- "hyper-util",
+  "iana-time-zone",
+  "image",
+  "indexmap 2.14.0",
+@@ -3051,8 +3011,6 @@ dependencies = [
+  "tokio-util",
+  "toml 0.9.11+spec-1.1.0",
+  "toml_edit 0.24.0+spec-1.1.0",
+- "tonic",
+- "tower",
+  "tracing",
+  "tracing-opentelemetry",
+  "tracing-subscriber",
+@@ -3062,14 +3020,13 @@ dependencies = [
+  "walkdir",
+  "which 8.0.0",
+  "whoami 1.6.1",
+- "windows-sys 0.61.2",
+  "wiremock",
+  "zstd",
+ ]
  
  [[package]]
  name = "codex-core-api"
@@ -1251,7 +1531,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-analytics",
   "codex-app-server-protocol",
-@@ -3049,7 +3049,7 @@ dependencies = [
+@@ -3092,7 +3049,7 @@ dependencies = [
  
  [[package]]
  name = "codex-core-plugin-common"
@@ -1260,7 +1540,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-utils-absolute-path",
   "semver",
-@@ -3060,7 +3060,7 @@ dependencies = [
+@@ -3103,7 +3060,7 @@ dependencies = [
  
  [[package]]
  name = "codex-core-plugins"
@@ -1269,7 +1549,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -3116,7 +3116,7 @@ dependencies = [
+@@ -3127,7 +3084,6 @@ dependencies = [
+  "codex-skills",
+  "codex-tools",
+  "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "codex-utils-path",
+  "codex-utils-path-uri",
+  "codex-utils-plugins",
+@@ -3160,7 +3116,7 @@ dependencies = [
  
  [[package]]
  name = "codex-diagnostics"
@@ -1278,7 +1566,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "libc",
   "pretty_assertions",
-@@ -3124,7 +3124,7 @@ dependencies = [
+@@ -3168,7 +3124,7 @@ dependencies = [
  
  [[package]]
  name = "codex-exec"
@@ -1287,7 +1575,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "assert_cmd",
-@@ -3176,7 +3176,7 @@ dependencies = [
+@@ -3197,7 +3153,6 @@ dependencies = [
+  "codex-utils-sandbox-summary",
+  "codex-worktree",
+  "core_test_support",
+- "insta",
+  "libc",
+  "opentelemetry",
+  "opentelemetry_sdk",
+@@ -3221,7 +3176,7 @@ dependencies = [
  
  [[package]]
  name = "codex-exec-server"
@@ -1296,7 +1592,32 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "arc-swap",
-@@ -3244,7 +3244,7 @@ dependencies = [
+@@ -3238,8 +3193,6 @@ dependencies = [
+  "codex-file-system",
+  "codex-file-watcher",
+  "codex-http-client",
+- "codex-linux-sandbox",
+- "codex-mxc-sandbox",
+  "codex-network-proxy",
+  "codex-otel",
+  "codex-protocol",
+@@ -3258,7 +3211,6 @@ dependencies = [
+  "codex-utils-rustls-provider",
+  "codex-websocket-auth",
+  "codex-websocket-client",
+- "codex-windows-sandbox-test-support",
+  "ctor 0.6.3",
+  "dirs",
+  "futures",
+@@ -3286,18 +3238,16 @@ dependencies = [
+  "tracing-subscriber",
+  "url",
+  "uuid",
+- "which 8.0.0",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+  "wiremock",
+ ]
  
  [[package]]
  name = "codex-exec-server-protocol"
@@ -1305,7 +1626,11 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-file-system",
-@@ -3260,7 +3260,7 @@ dependencies = [
+- "codex-install-context",
+  "codex-mxc-sandbox",
+  "codex-network-proxy",
+  "codex-protocol",
+@@ -3310,7 +3260,7 @@ dependencies = [
  
  [[package]]
  name = "codex-exec-server-test-support"
@@ -1314,7 +1639,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-exec-server",
-@@ -3275,7 +3275,7 @@ dependencies = [
+@@ -3325,7 +3275,7 @@ dependencies = [
  
  [[package]]
  name = "codex-execpolicy"
@@ -1323,7 +1648,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -3293,7 +3293,7 @@ dependencies = [
+@@ -3343,7 +3293,7 @@ dependencies = [
  
  [[package]]
  name = "codex-experimental-api-macros"
@@ -1332,7 +1657,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "proc-macro2",
   "quote",
-@@ -3302,7 +3302,7 @@ dependencies = [
+@@ -3352,7 +3302,7 @@ dependencies = [
  
  [[package]]
  name = "codex-extension-api"
@@ -1341,7 +1666,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-api",
   "codex-config",
-@@ -3324,7 +3324,7 @@ dependencies = [
+@@ -3374,7 +3324,7 @@ dependencies = [
  
  [[package]]
  name = "codex-extension-items"
@@ -1350,7 +1675,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-utils-absolute-path",
   "pretty_assertions",
-@@ -3336,7 +3336,7 @@ dependencies = [
+@@ -3386,7 +3336,7 @@ dependencies = [
  
  [[package]]
  name = "codex-external-agent-migration"
@@ -1359,7 +1684,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "chrono",
   "codex-analytics",
-@@ -3366,7 +3366,7 @@ dependencies = [
+@@ -3403,7 +3353,6 @@ dependencies = [
+  "codex-rollout",
+  "codex-thread-store",
+  "codex-utils-output-truncation",
+- "linkify",
+  "pretty_assertions",
+  "serde",
+  "serde_json",
+@@ -3417,11 +3366,10 @@ dependencies = [
  
  [[package]]
  name = "codex-features"
@@ -1368,7 +1701,11 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-network-proxy",
   "codex-protocol",
-@@ -3379,7 +3379,7 @@ dependencies = [
+- "codex-utils-redacted-string",
+  "pretty_assertions",
+  "schemars 0.8.22",
+  "serde",
+@@ -3431,7 +3379,7 @@ dependencies = [
  
  [[package]]
  name = "codex-feedback"
@@ -1377,7 +1714,16 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "bytes",
-@@ -3404,7 +3404,7 @@ dependencies = [
+@@ -3448,8 +3396,6 @@ dependencies = [
+  "pretty_assertions",
+  "sentry",
+  "serde_json",
+- "tar",
+- "tempfile",
+  "tokio",
+  "tracing",
+  "tracing-subscriber",
+@@ -3458,7 +3404,7 @@ dependencies = [
  
  [[package]]
  name = "codex-file-search"
@@ -1386,7 +1732,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -3420,7 +3420,7 @@ dependencies = [
+@@ -3474,7 +3420,7 @@ dependencies = [
  
  [[package]]
  name = "codex-file-system"
@@ -1395,7 +1741,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "bytes",
   "codex-protocol",
-@@ -3432,7 +3432,7 @@ dependencies = [
+@@ -3486,7 +3432,7 @@ dependencies = [
  
  [[package]]
  name = "codex-file-watcher"
@@ -1404,7 +1750,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "notify",
   "pretty_assertions",
-@@ -3443,7 +3443,7 @@ dependencies = [
+@@ -3497,7 +3443,7 @@ dependencies = [
  
  [[package]]
  name = "codex-git-attribution"
@@ -1413,7 +1759,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-backend-client",
   "codex-extension-api",
-@@ -3456,7 +3456,7 @@ dependencies = [
+@@ -3510,14 +3456,13 @@ dependencies = [
  
  [[package]]
  name = "codex-git-utils"
@@ -1422,7 +1768,14 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -3483,7 +3483,7 @@ dependencies = [
+  "codex-file-system",
+  "codex-protocol",
+  "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "codex-utils-path-uri",
+  "codex-utils-process",
+  "codex-utils-pty",
+@@ -3538,7 +3483,7 @@ dependencies = [
  
  [[package]]
  name = "codex-goal-extension"
@@ -1431,7 +1784,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -3508,7 +3508,7 @@ dependencies = [
+@@ -3563,19 +3508,18 @@ dependencies = [
  
  [[package]]
  name = "codex-guardian-context"
@@ -1440,7 +1793,11 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-context-fragments",
   "codex-history",
-@@ -3519,7 +3519,7 @@ dependencies = [
+  "codex-protocol",
+  "pretty_assertions",
+- "serde",
+  "serde_json",
+ ]
  
  [[package]]
  name = "codex-guardian-reviewer"
@@ -1449,7 +1806,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-analytics",
-@@ -3544,7 +3544,7 @@ dependencies = [
+@@ -3600,7 +3544,7 @@ dependencies = [
  
  [[package]]
  name = "codex-guardian-v2"
@@ -1458,7 +1815,19 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-analytics",
-@@ -3580,7 +3580,7 @@ dependencies = [
+@@ -3620,11 +3564,9 @@ dependencies = [
+  "codex-prompts",
+  "codex-protocol",
+  "codex-utils-cargo-bin",
+- "codex-websocket-client",
+  "core_test_support",
+  "dirs",
+  "http 1.4.0",
+- "insta",
+  "pretty_assertions",
+  "serde_json",
+  "tempfile",
+@@ -3638,7 +3580,7 @@ dependencies = [
  
  [[package]]
  name = "codex-history"
@@ -1467,7 +1836,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-protocol",
-@@ -3592,7 +3592,7 @@ dependencies = [
+@@ -3650,7 +3592,7 @@ dependencies = [
  
  [[package]]
  name = "codex-history-notes-extension"
@@ -1476,7 +1845,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-analytics",
   "codex-client",
-@@ -3617,7 +3617,7 @@ dependencies = [
+@@ -3675,7 +3617,7 @@ dependencies = [
  
  [[package]]
  name = "codex-home"
@@ -1485,7 +1854,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-extension-api",
   "codex-utils-absolute-path",
-@@ -3629,7 +3629,7 @@ dependencies = [
+@@ -3687,7 +3629,7 @@ dependencies = [
  
  [[package]]
  name = "codex-hooks"
@@ -1494,7 +1863,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "async-channel",
-@@ -3657,7 +3657,7 @@ dependencies = [
+@@ -3715,7 +3657,7 @@ dependencies = [
  
  [[package]]
  name = "codex-http-client"
@@ -1503,7 +1872,14 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "bytes",
   "codex-utils-cargo-bin",
-@@ -3693,7 +3693,7 @@ dependencies = [
+@@ -3745,13 +3687,13 @@ dependencies = [
+  "tracing",
+  "tracing-opentelemetry",
+  "tracing-subscriber",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+  "zstd",
+ ]
  
  [[package]]
  name = "codex-image-generation-extension"
@@ -1512,7 +1888,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-api",
-@@ -3721,7 +3721,7 @@ dependencies = [
+@@ -3779,7 +3721,7 @@ dependencies = [
  
  [[package]]
  name = "codex-install-context"
@@ -1521,7 +1897,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-utils-absolute-path",
   "codex-utils-home-dir",
-@@ -3734,7 +3734,7 @@ dependencies = [
+@@ -3792,7 +3734,7 @@ dependencies = [
  
  [[package]]
  name = "codex-keyring-store"
@@ -1530,7 +1906,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "keyring",
   "pretty_assertions",
-@@ -3745,7 +3745,7 @@ dependencies = [
+@@ -3803,7 +3745,7 @@ dependencies = [
  
  [[package]]
  name = "codex-linux-sandbox"
@@ -1539,7 +1915,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "clap",
   "codex-core",
-@@ -3773,7 +3773,7 @@ dependencies = [
+@@ -3814,7 +3756,6 @@ dependencies = [
+  "codex-sandboxing",
+  "codex-uds",
+  "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "globset",
+  "landlock",
+  "libc",
+@@ -3832,7 +3773,7 @@ dependencies = [
  
  [[package]]
  name = "codex-lmstudio"
@@ -1548,7 +1932,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-core",
   "codex-http-client",
-@@ -3787,7 +3787,7 @@ dependencies = [
+@@ -3846,7 +3787,7 @@ dependencies = [
  
  [[package]]
  name = "codex-login"
@@ -1557,7 +1941,23 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -3831,7 +3831,7 @@ dependencies = [
+@@ -3860,7 +3801,6 @@ dependencies = [
+  "codex-protocol",
+  "codex-secrets",
+  "codex-terminal-detection",
+- "codex-utils-cargo-bin",
+  "codex-utils-process",
+  "codex-utils-template",
+  "codex-workload-identity",
+@@ -3869,7 +3809,6 @@ dependencies = [
+  "jsonwebtoken",
+  "keyring",
+  "once_cell",
+- "opentelemetry_sdk",
+  "os_info",
+  "pretty_assertions",
+  "rand 0.9.3",
+@@ -3892,7 +3831,7 @@ dependencies = [
  
  [[package]]
  name = "codex-mcp"
@@ -1566,7 +1966,19 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "arc-swap",
-@@ -3871,7 +3871,7 @@ dependencies = [
+@@ -3911,11 +3850,8 @@ dependencies = [
+  "codex-plugin",
+  "codex-protocol",
+  "codex-rmcp-client",
+- "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "codex-utils-path-uri",
+  "codex-utils-plugins",
+- "codex-utils-process",
+  "futures",
+  "insta",
+  "lru",
+@@ -3935,7 +3871,7 @@ dependencies = [
  
  [[package]]
  name = "codex-mcp-extension"
@@ -1575,7 +1987,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "axum",
-@@ -3904,7 +3904,7 @@ dependencies = [
+@@ -3968,7 +3904,7 @@ dependencies = [
  
  [[package]]
  name = "codex-memories-extension"
@@ -1584,7 +1996,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-core",
   "codex-extension-api",
-@@ -3926,7 +3926,7 @@ dependencies = [
+@@ -3990,7 +3926,7 @@ dependencies = [
  
  [[package]]
  name = "codex-memories-read"
@@ -1593,7 +2005,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "codex-shell-command",
-@@ -3936,7 +3936,7 @@ dependencies = [
+@@ -4000,7 +3936,7 @@ dependencies = [
  
  [[package]]
  name = "codex-memories-write"
@@ -1602,7 +2014,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -3973,7 +3973,7 @@ dependencies = [
+@@ -4037,7 +3973,7 @@ dependencies = [
  
  [[package]]
  name = "codex-mermaid"
@@ -1611,7 +2023,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "insta",
   "pretty_assertions",
-@@ -3982,7 +3982,7 @@ dependencies = [
+@@ -4046,7 +3982,7 @@ dependencies = [
  
  [[package]]
  name = "codex-message-history"
@@ -1620,7 +2032,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-config",
   "memchr",
-@@ -3996,7 +3996,7 @@ dependencies = [
+@@ -4060,7 +3996,7 @@ dependencies = [
  
  [[package]]
  name = "codex-model-provider"
@@ -1629,7 +2041,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "chrono",
-@@ -4029,7 +4029,7 @@ dependencies = [
+@@ -4077,7 +4013,6 @@ dependencies = [
+  "codex-protocol",
+  "codex-response-debug-context",
+  "codex-secrets",
+- "codex-utils-cargo-bin",
+  "codex-utils-process",
+  "codex-utils-redacted-string",
+  "http 1.4.0",
+@@ -4094,7 +4029,7 @@ dependencies = [
  
  [[package]]
  name = "codex-model-provider-info"
@@ -1638,7 +2058,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-client",
   "codex-protocol",
-@@ -4047,7 +4047,7 @@ dependencies = [
+@@ -4112,7 +4047,7 @@ dependencies = [
  
  [[package]]
  name = "codex-models-manager"
@@ -1647,7 +2067,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "chrono",
   "codex-http-client",
-@@ -4066,7 +4066,7 @@ dependencies = [
+@@ -4131,7 +4066,7 @@ dependencies = [
  
  [[package]]
  name = "codex-mxc-sandbox"
@@ -1656,7 +2076,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "appcontainer_common",
-@@ -4088,7 +4088,7 @@ dependencies = [
+@@ -4153,7 +4088,7 @@ dependencies = [
  
  [[package]]
  name = "codex-network-proxy"
@@ -1665,7 +2085,13 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -4137,7 +4137,7 @@ dependencies = [
+@@ -4197,12 +4132,12 @@ dependencies = [
+  "tracing",
+  "tracing-subscriber",
+  "url",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-ollama"
@@ -1674,7 +2100,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "assert_matches",
   "async-stream",
-@@ -4157,7 +4157,7 @@ dependencies = [
+@@ -4222,7 +4157,7 @@ dependencies = [
  
  [[package]]
  name = "codex-otel"
@@ -1683,7 +2109,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "bytes",
   "chrono",
-@@ -4194,7 +4194,7 @@ dependencies = [
+@@ -4259,7 +4194,7 @@ dependencies = [
  
  [[package]]
  name = "codex-otel-trace-websocket"
@@ -1692,7 +2118,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "axum",
-@@ -4205,7 +4205,7 @@ dependencies = [
+@@ -4270,7 +4205,7 @@ dependencies = [
  
  [[package]]
  name = "codex-plugin"
@@ -1701,7 +2127,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-config",
   "codex-core-plugin-common",
-@@ -4220,7 +4220,7 @@ dependencies = [
+@@ -4285,7 +4220,7 @@ dependencies = [
  
  [[package]]
  name = "codex-process-hardening"
@@ -1710,7 +2136,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "libc",
   "pretty_assertions",
-@@ -4228,7 +4228,7 @@ dependencies = [
+@@ -4293,7 +4228,7 @@ dependencies = [
  
  [[package]]
  name = "codex-prompts"
@@ -1719,7 +2145,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-collaboration-mode-templates",
-@@ -4245,7 +4245,7 @@ dependencies = [
+@@ -4310,7 +4245,7 @@ dependencies = [
  
  [[package]]
  name = "codex-protocol"
@@ -1728,7 +2154,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chardetng",
-@@ -4289,7 +4289,7 @@ dependencies = [
+@@ -4325,7 +4260,6 @@ dependencies = [
+  "codex-utils-path-uri",
+  "codex-utils-redacted-string",
+  "codex-utils-string",
+- "derive_more 2.1.1",
+  "encoding_rs",
+  "gix-url",
+  "globset",
+@@ -4355,7 +4289,7 @@ dependencies = [
  
  [[package]]
  name = "codex-queue-extension"
@@ -1737,7 +2171,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-core",
-@@ -4310,7 +4310,7 @@ dependencies = [
+@@ -4376,12 +4310,11 @@ dependencies = [
  
  [[package]]
  name = "codex-realtime-webrtc"
@@ -1746,7 +2180,12 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-build-info",
-@@ -4328,7 +4328,7 @@ dependencies = [
+  "codex-install-context",
+- "codex-utils-cargo-bin",
+  "codex-utils-pty",
+  "ctor 0.6.3",
+  "futures",
+@@ -4395,7 +4328,7 @@ dependencies = [
  
  [[package]]
  name = "codex-response-debug-context"
@@ -1755,7 +2194,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-api",
-@@ -4339,7 +4339,7 @@ dependencies = [
+@@ -4406,7 +4339,7 @@ dependencies = [
  
  [[package]]
  name = "codex-responses-api-proxy"
@@ -1764,7 +2203,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -4356,7 +4356,7 @@ dependencies = [
+@@ -4423,7 +4356,7 @@ dependencies = [
  
  [[package]]
  name = "codex-rmcp-client"
@@ -1773,7 +2212,30 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "axum",
-@@ -4405,7 +4405,7 @@ dependencies = [
+@@ -4448,7 +4381,6 @@ dependencies = [
+  "libc",
+  "memchr",
+  "oauth2",
+- "opentelemetry_sdk",
+  "pretty_assertions",
+  "rmcp",
+  "serde",
+@@ -4460,7 +4392,6 @@ dependencies = [
+  "thiserror 2.0.18",
+  "tiny_http",
+  "tokio",
+- "tokio-util",
+  "tracing",
+  "tracing-subscriber",
+  "tracing-test",
+@@ -4468,13 +4399,13 @@ dependencies = [
+  "urlencoding",
+  "webbrowser",
+  "which 8.0.0",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+  "wiremock",
+ ]
  
  [[package]]
  name = "codex-rollout"
@@ -1782,7 +2244,19 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -4433,7 +4433,7 @@ dependencies = [
+@@ -4486,11 +4417,8 @@ dependencies = [
+  "codex-protocol",
+  "codex-state",
+  "codex-utils-absolute-path",
+- "codex-utils-output-truncation",
+  "codex-utils-path",
+  "codex-utils-process",
+- "codex-utils-string",
+- "memchr",
+  "pretty_assertions",
+  "regex",
+  "serde",
+@@ -4505,7 +4433,7 @@ dependencies = [
  
  [[package]]
  name = "codex-rollout-trace"
@@ -1791,7 +2265,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-code-mode",
-@@ -4449,7 +4449,7 @@ dependencies = [
+@@ -4521,7 +4449,7 @@ dependencies = [
  
  [[package]]
  name = "codex-sandboxing"
@@ -1800,7 +2274,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-mxc-sandbox",
-@@ -4476,7 +4476,7 @@ dependencies = [
+@@ -4530,7 +4458,6 @@ dependencies = [
+  "codex-protocol",
+  "codex-uds",
+  "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "codex-utils-home-dir",
+  "codex-utils-path-uri",
+  "codex-utils-pty",
+@@ -4549,7 +4476,7 @@ dependencies = [
  
  [[package]]
  name = "codex-secrets"
@@ -1809,7 +2291,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "age",
   "anyhow",
-@@ -4497,7 +4497,7 @@ dependencies = [
+@@ -4570,7 +4497,7 @@ dependencies = [
  
  [[package]]
  name = "codex-shell-command"
@@ -1818,17 +2300,30 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -4520,7 +4520,7 @@ dependencies = [
+@@ -4591,9 +4518,29 @@ dependencies = [
+  "which 8.0.0",
+ ]
  
- [[package]]
- name = "codex-shell-escalation"
--version = "0.0.0"
++[[package]]
++name = "codex-shell-escalation"
 +version = "0.159.0"
- dependencies = [
-  "anyhow",
-  "clap",
-@@ -4540,7 +4540,7 @@ dependencies = [
- 
++dependencies = [
++ "anyhow",
++ "clap",
++ "codex-protocol",
++ "codex-utils-absolute-path",
++ "libc",
++ "pretty_assertions",
++ "serde",
++ "serde_json",
++ "socket2 0.6.3",
++ "tempfile",
++ "tokio",
++ "tokio-util",
++ "tracing",
++ "tracing-subscriber",
++]
++
  [[package]]
  name = "codex-skills"
 -version = "0.0.0"
@@ -1836,7 +2331,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "codex-shell-command",
-@@ -4557,7 +4557,7 @@ dependencies = [
+@@ -4610,7 +4557,7 @@ dependencies = [
  
  [[package]]
  name = "codex-skills-extension"
@@ -1845,7 +2340,12 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "assert_matches",
   "blake3",
-@@ -4594,7 +4594,7 @@ dependencies = [
+@@ -4643,12 +4590,11 @@ dependencies = [
+  "tokio",
+  "toml 0.9.11+spec-1.1.0",
+  "tracing",
+- "tracing-subscriber",
+ ]
  
  [[package]]
  name = "codex-state"
@@ -1854,7 +2354,15 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "chrono",
-@@ -4620,7 +4620,7 @@ dependencies = [
+@@ -4656,7 +4602,6 @@ dependencies = [
+  "codex-history",
+  "codex-protocol",
+  "codex-utils-absolute-path",
+- "file-id",
+  "libsqlite3-sys",
+  "log",
+  "pretty_assertions",
+@@ -4675,7 +4620,7 @@ dependencies = [
  
  [[package]]
  name = "codex-stdio-to-uds"
@@ -1863,7 +2371,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-uds",
-@@ -4632,7 +4632,7 @@ dependencies = [
+@@ -4687,7 +4632,7 @@ dependencies = [
  
  [[package]]
  name = "codex-tcp-tunnel"
@@ -1872,7 +2380,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "bytes",
-@@ -4653,7 +4653,7 @@ dependencies = [
+@@ -4708,7 +4653,7 @@ dependencies = [
  
  [[package]]
  name = "codex-terminal-detection"
@@ -1881,7 +2389,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "pretty_assertions",
   "tracing",
-@@ -4661,7 +4661,7 @@ dependencies = [
+@@ -4716,7 +4661,7 @@ dependencies = [
  
  [[package]]
  name = "codex-test-binary-support"
@@ -1890,7 +2398,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-arg0",
   "tempfile",
-@@ -4669,7 +4669,7 @@ dependencies = [
+@@ -4724,7 +4669,7 @@ dependencies = [
  
  [[package]]
  name = "codex-thread-manager-sample"
@@ -1899,7 +2407,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "clap",
-@@ -4680,7 +4680,7 @@ dependencies = [
+@@ -4735,7 +4680,7 @@ dependencies = [
  
  [[package]]
  name = "codex-thread-store"
@@ -1908,7 +2416,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "chrono",
   "codex-app-server-protocol",
-@@ -4711,7 +4711,7 @@ dependencies = [
+@@ -4766,7 +4711,7 @@ dependencies = [
  
  [[package]]
  name = "codex-tools"
@@ -1917,7 +2425,19 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "bitflags 2.13.1",
   "codex-code-mode",
-@@ -4735,9 +4735,44 @@ dependencies = [
+@@ -4775,6 +4720,7 @@ dependencies = [
+  "codex-features",
+  "codex-file-system",
+  "codex-protocol",
++ "codex-utils-absolute-path",
+  "codex-utils-cargo-bin",
+  "codex-utils-output-truncation",
+  "codex-utils-path-uri",
+@@ -4785,12 +4731,48 @@ dependencies = [
+  "serde",
+  "serde_json",
+  "thiserror 2.0.18",
++ "tracing",
   "urlencoding",
  ]
  
@@ -1963,7 +2483,24 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "app_test_support",
-@@ -4863,7 +4898,7 @@ dependencies = [
+@@ -4869,7 +4851,6 @@ dependencies = [
+  "libc",
+  "objc2-app-kit",
+  "objc2-foundation",
+- "opentelemetry_sdk",
+  "pathdiff",
+  "pretty_assertions",
+  "pulldown-cmark",
+@@ -4909,7 +4890,7 @@ dependencies = [
+  "vt100",
+  "webbrowser",
+  "which 8.0.0",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+  "winsplit",
+  "wiremock",
+  "zbus",
+@@ -4917,7 +4898,7 @@ dependencies = [
  
  [[package]]
  name = "codex-uds"
@@ -1972,7 +2509,13 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "async-io",
   "libc",
-@@ -4877,7 +4912,7 @@ dependencies = [
+@@ -4926,12 +4907,12 @@ dependencies = [
+  "tokio",
+  "tokio-util",
+  "uds_windows",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-user-verification"
@@ -1981,7 +2524,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "core-foundation 0.10.1",
-@@ -4897,7 +4932,7 @@ dependencies = [
+@@ -4951,7 +4932,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-absolute-path"
@@ -1990,7 +2533,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "dirs",
   "dunce",
-@@ -4911,14 +4946,14 @@ dependencies = [
+@@ -4965,14 +4946,14 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-approval-presets"
@@ -2007,7 +2550,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-protocol",
-@@ -4932,7 +4967,7 @@ dependencies = [
+@@ -4986,7 +4967,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-cache"
@@ -2016,7 +2559,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "lru",
   "sha1 0.10.6",
-@@ -4941,7 +4976,7 @@ dependencies = [
+@@ -4995,7 +4976,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-cargo-bin"
@@ -2025,7 +2568,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "assert_cmd",
   "runfiles",
-@@ -4950,7 +4985,7 @@ dependencies = [
+@@ -5004,7 +4985,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-cli"
@@ -2034,7 +2577,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "clap",
   "codex-protocol",
-@@ -4962,15 +4997,15 @@ dependencies = [
+@@ -5016,15 +4997,15 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-elapsed"
@@ -2053,7 +2596,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-git-utils",
   "codex-utils-absolute-path",
-@@ -4983,7 +5018,7 @@ dependencies = [
+@@ -5037,7 +5018,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-home-dir"
@@ -2062,7 +2605,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-utils-absolute-path",
   "dirs",
-@@ -4993,7 +5028,7 @@ dependencies = [
+@@ -5047,7 +5028,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-image"
@@ -2071,7 +2614,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-utils-cache",
-@@ -5007,7 +5042,7 @@ dependencies = [
+@@ -5061,7 +5042,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-json-to-toml"
@@ -2080,7 +2623,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "pretty_assertions",
   "serde_json",
-@@ -5016,7 +5051,7 @@ dependencies = [
+@@ -5070,7 +5051,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-oss"
@@ -2089,7 +2632,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-core",
   "codex-lmstudio",
-@@ -5026,7 +5061,7 @@ dependencies = [
+@@ -5080,28 +5061,27 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-output-truncation"
@@ -2098,7 +2641,9 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "codex-utils-string",
-@@ -5035,7 +5070,7 @@ dependencies = [
+  "pretty_assertions",
+- "serde_json",
+ ]
  
  [[package]]
  name = "codex-utils-path"
@@ -2107,7 +2652,11 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-utils-absolute-path",
   "dunce",
-@@ -5046,7 +5081,7 @@ dependencies = [
+  "pretty_assertions",
+  "tempfile",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-utils-path-uri"
@@ -2116,7 +2665,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "base64 0.22.1",
   "codex-utils-absolute-path",
-@@ -5062,7 +5097,7 @@ dependencies = [
+@@ -5117,7 +5097,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-plugins"
@@ -2125,7 +2674,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-exec-server",
   "codex-exec-server-protocol",
-@@ -5084,7 +5119,7 @@ dependencies = [
+@@ -5139,10 +5119,9 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-pty"
@@ -2133,8 +2682,11 @@ index a24fb43..0ce8434 100644
 +version = "0.159.0"
  dependencies = [
   "anyhow",
+- "codex-utils-cargo-bin",
   "ctor 0.6.3",
-@@ -5102,7 +5137,7 @@ dependencies = [
+  "filedescriptor",
+  "lazy_static",
+@@ -5158,7 +5137,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-readiness"
@@ -2143,7 +2695,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "assert_matches",
   "thiserror 2.0.18",
-@@ -5112,7 +5147,7 @@ dependencies = [
+@@ -5168,7 +5147,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-redacted-string"
@@ -2152,7 +2704,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "schemars 0.8.22",
   "serde",
-@@ -5120,14 +5155,14 @@ dependencies = [
+@@ -5176,14 +5155,14 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-rustls-provider"
@@ -2169,7 +2721,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-protocol",
   "codex-utils-absolute-path",
-@@ -5137,7 +5172,7 @@ dependencies = [
+@@ -5193,7 +5172,7 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-sleep-inhibitor"
@@ -2178,7 +2730,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "core-foundation 0.9.4",
   "libc",
-@@ -5147,14 +5182,14 @@ dependencies = [
+@@ -5203,14 +5182,14 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-stream-parser"
@@ -2195,7 +2747,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "pretty_assertions",
   "regex-lite",
-@@ -5164,14 +5199,14 @@ dependencies = [
+@@ -5220,14 +5199,14 @@ dependencies = [
  
  [[package]]
  name = "codex-utils-template"
@@ -2212,7 +2764,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "pretty_assertions",
   "v8",
-@@ -5179,7 +5214,7 @@ dependencies = [
+@@ -5235,7 +5214,7 @@ dependencies = [
  
  [[package]]
  name = "codex-voice-host"
@@ -2221,7 +2773,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-install-context",
-@@ -5206,7 +5241,7 @@ dependencies = [
+@@ -5262,7 +5241,7 @@ dependencies = [
  
  [[package]]
  name = "codex-web-search-extension"
@@ -2230,7 +2782,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-api",
   "codex-core",
-@@ -5228,7 +5263,7 @@ dependencies = [
+@@ -5284,7 +5263,7 @@ dependencies = [
  
  [[package]]
  name = "codex-websocket-auth"
@@ -2239,7 +2791,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -5247,7 +5282,7 @@ dependencies = [
+@@ -5303,7 +5282,7 @@ dependencies = [
  
  [[package]]
  name = "codex-websocket-client"
@@ -2248,7 +2800,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-http-client",
   "codex-utils-rustls-provider",
-@@ -5263,7 +5298,7 @@ dependencies = [
+@@ -5319,7 +5298,7 @@ dependencies = [
  
  [[package]]
  name = "codex-windows-sandbox"
@@ -2257,7 +2809,25 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "base64 0.22.1",
-@@ -5291,7 +5326,7 @@ dependencies = [
+@@ -5328,11 +5307,9 @@ dependencies = [
+  "codex-otel",
+  "codex-protocol",
+  "codex-utils-absolute-path",
+- "codex-utils-cargo-bin",
+  "codex-utils-process",
+  "codex-utils-pty",
+  "codex-utils-string",
+- "codex-windows-sandbox-test-support",
+  "dirs-next",
+  "dunce",
+  "glob",
+@@ -5344,12 +5321,12 @@ dependencies = [
+  "tokio",
+  "tracing-appender",
+  "windows 0.58.0",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-windows-sandbox-service"
@@ -2266,7 +2836,20 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-cloud-config",
-@@ -5308,7 +5343,7 @@ dependencies = [
+@@ -5361,19 +5338,12 @@ dependencies = [
+  "tokio",
+  "toml 0.9.11+spec-1.1.0",
+  "windows 0.58.0",
+- "windows-sys 0.61.2",
+-]
+-
+-[[package]]
+-name = "codex-windows-sandbox-test-support"
+-version = "0.0.0"
+-dependencies = [
+- "dirs",
++ "windows-sys 0.52.0",
+ ]
  
  [[package]]
  name = "codex-workload-identity"
@@ -2275,7 +2858,7 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "codex-http-client",
   "pretty_assertions",
-@@ -5323,7 +5358,7 @@ dependencies = [
+@@ -5388,12 +5358,11 @@ dependencies = [
  
  [[package]]
  name = "codex-worktree"
@@ -2284,7 +2867,12 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "codex-git-utils",
-@@ -5563,7 +5598,7 @@ dependencies = [
+  "codex-protocol",
+- "codex-utils-cargo-bin",
+  "dunce",
+  "pretty_assertions",
+  "serde",
+@@ -5629,7 +5598,7 @@ dependencies = [
  
  [[package]]
  name = "core_test_support"
@@ -2293,8 +2881,504 @@ index a24fb43..0ce8434 100644
  dependencies = [
   "anyhow",
   "assert_cmd",
+@@ -5821,11 +5790,12 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+ [[package]]
+ name = "crossterm"
+ version = "0.29.0"
+-source = "git+https://github.com/openai-oss-forks/crossterm?rev=ed1cdab335221515706178d68495bba2aed1924f#ed1cdab335221515706178d68495bba2aed1924f"
++source = "git+https://github.com/openai-oss-forks/crossterm?rev=efa177859fd9623d57b9fe7ae9bf491ae1ac6ec4#efa177859fd9623d57b9fe7ae9bf491ae1ac6ec4"
+ dependencies = [
+  "bitflags 2.13.1",
+  "crossterm_winapi",
+  "derive_more 2.1.1",
++ "document-features",
+  "futures-core",
+  "mio",
+  "parking_lot",
+@@ -6490,7 +6460,7 @@ dependencies = [
+  "libc",
+  "option-ext",
+  "redox_users 0.5.2",
+- "windows-sys 0.59.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -6847,7 +6817,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+ dependencies = [
+  "libc",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -7025,15 +6995,6 @@ version = "0.2.9"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
+ 
+-[[package]]
+-name = "file-id"
+-version = "0.2.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "e1fc6a637b6dc58414714eddd9170ff187ecb0933d4c7024d1abbd23a3cc26e9"
+-dependencies = [
+- "windows-sys 0.60.2",
+-]
+-
+ [[package]]
+ name = "filedescriptor"
+ version = "0.8.3"
+@@ -7132,9 +7093,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "fluent"
+-version = "0.17.0"
++version = "0.16.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8137a6d5a2c50d6b0ebfcb9aaa91a28154e0a70605f112d30cb0cd4a78670477"
++checksum = "bb74634707bebd0ce645a981148e8fb8c7bccd4c33c652aeffd28bf2f96d555a"
+ dependencies = [
+  "fluent-bundle",
+  "unic-langid",
+@@ -7142,16 +7103,16 @@ dependencies = [
+ 
+ [[package]]
+ name = "fluent-bundle"
+-version = "0.16.0"
++version = "0.15.3"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "01203cb8918f5711e73891b347816d932046f95f54207710bda99beaeb423bf4"
++checksum = "7fe0a21ee80050c678013f82edf4b705fe2f26f1f9877593d13198612503f493"
+ dependencies = [
+  "fluent-langneg",
+  "fluent-syntax",
+  "intl-memoizer",
+  "intl_pluralrules",
+- "rustc-hash",
+- "self_cell",
++ "rustc-hash 1.1.0",
++ "self_cell 0.10.3",
+  "smallvec",
+  "unic-langid",
+ ]
+@@ -7167,12 +7128,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "fluent-syntax"
+-version = "0.12.0"
++version = "0.11.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "54f0d287c53ffd184d04d8677f590f4ac5379785529e5e08b1c8083acdd5c198"
++checksum = "2a530c4694a6a8d528794ee9bbd8ba0122e779629ac908d15ad5a7ae7763a33d"
+ dependencies = [
+- "memchr",
+- "thiserror 2.0.18",
++ "thiserror 1.0.69",
+ ]
+ 
+ [[package]]
+@@ -7454,13 +7414,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "0de51e6874e94e7bf76d726fc5d13ba782deca734ff60d5bb2fb2607c7406555"
+ dependencies = [
+  "cfg-if",
+- "js-sys",
+  "libc",
+  "r-efi 6.0.0",
+  "rand_core 0.10.1",
+  "wasip2",
+  "wasip3",
+- "wasm-bindgen",
+ ]
+ 
+ [[package]]
+@@ -7499,7 +7457,7 @@ dependencies = [
+  "gobject-sys",
+  "libc",
+  "system-deps",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -8574,9 +8532,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "h2"
+-version = "0.4.19"
++version = "0.4.16"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ef8e5e5a340588f4452631496976cf8636d4a7ecf600239fdc27615d2530bc16"
++checksum = "a9f37a958b41b3b19ee2707c06439c0e9e547e847223eb791ecb0cb821c65e27"
+ dependencies = [
+  "atomic-waker",
+  "bytes",
+@@ -8857,26 +8815,6 @@ dependencies = [
+  "windows-sys 0.61.2",
+ ]
+ 
+-[[package]]
+-name = "hpke"
+-version = "0.12.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "4917627a14198c3603282c5158b815ad5534795451d3c074b53cf3cee0960b11"
+-dependencies = [
+- "aead",
+- "aes-gcm",
+- "chacha20poly1305",
+- "digest 0.10.7",
+- "generic-array",
+- "hkdf 0.12.4",
+- "hmac 0.12.1",
+- "p256",
+- "rand_core 0.6.4",
+- "sha2 0.10.9",
+- "subtle",
+- "zeroize",
+-]
+-
+ [[package]]
+ name = "http"
+ version = "0.2.12"
+@@ -8970,9 +8908,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "hyper"
+-version = "1.11.1"
++version = "1.8.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "27b501faa50e7a26c3d3560ca625132f4078a17771f4810baf70475ae48cbe43"
++checksum = "2ab2d4f250c3d7b1c9fcdff1cece94ea4e2dfbec68614f7b87cb205f24ca9d11"
+ dependencies = [
+  "atomic-waker",
+  "bytes",
+@@ -8985,6 +8923,7 @@ dependencies = [
+  "httpdate",
+  "itoa",
+  "pin-project-lite",
++ "pin-utils",
+  "smallvec",
+  "tokio",
+  "want",
+@@ -9078,9 +9017,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "i18n-embed"
+-version = "0.16.0"
++version = "0.15.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a217bbb075dcaefb292efa78897fc0678245ca67f265d12c351e42268fcb0305"
++checksum = "669ffc2c93f97e6ddf06ddbe999fcd6782e3342978bb85f7d3c087c7978404c4"
+ dependencies = [
+  "arc-swap",
+  "fluent",
+@@ -9098,16 +9037,16 @@ dependencies = [
+ 
+ [[package]]
+ name = "i18n-embed-fl"
+-version = "0.10.1"
++version = "0.9.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "602e6bd30c3db2749e13e38b363a3d98d9d41de1d8de7a79c31bb69e45b47cda"
++checksum = "04b2969d0b3fc6143776c535184c19722032b43e6a642d710fa3f88faec53c2d"
+ dependencies = [
+  "find-crate",
+  "fluent",
+  "fluent-syntax",
+  "i18n-config",
+  "i18n-embed",
+- "proc-macro-error3",
++ "proc-macro-error2",
+  "proc-macro2",
+  "quote",
+  "strsim 0.11.1",
+@@ -9611,7 +9550,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
+ dependencies = [
+  "hermit-abi",
+  "libc",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -9677,7 +9616,7 @@ dependencies = [
+  "portable-atomic",
+  "portable-atomic-util",
+  "serde_core",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -10005,15 +9944,6 @@ version = "0.17.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "4d1e908a416d6e9f725743b84a36feea40c4c131e805fbc26d61f9f451f36080"
+ 
+-[[package]]
+-name = "linkify"
+-version = "0.11.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "92f9ae2f3d31697697311f016320fe984127e636b45cf5eb5c175b7eb103dadb"
+-dependencies = [
+- "memchr",
+-]
+-
+ [[package]]
+ name = "linktime-proc-macro"
+ version = "0.1.0"
+@@ -10595,7 +10525,7 @@ version = "0.50.3"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
+ dependencies = [
+- "windows-sys 0.59.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -11312,7 +11242,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
+ dependencies = [
+  "libc",
+- "windows-sys 0.48.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -11880,25 +11810,25 @@ dependencies = [
+ ]
+ 
+ [[package]]
+-name = "proc-macro-error-attr3"
+-version = "3.1.1"
++name = "proc-macro-error-attr2"
++version = "2.0.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "9e564d14133360e1ae169ffde5da25881b5fa47261665b8e5713c212c27799da"
++checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+ ]
+ 
+ [[package]]
+-name = "proc-macro-error3"
+-version = "3.1.1"
++name = "proc-macro-error2"
++version = "2.0.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8f0d4471b3436c22106b21913b1dda531558918ae9b7ec55d58aa84b43552233"
++checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+ dependencies = [
+- "proc-macro-error-attr3",
++ "proc-macro-error-attr2",
+  "proc-macro2",
+  "quote",
+- "syn 3.0.3",
++ "syn 2.0.117",
+ ]
+ 
+ [[package]]
+@@ -11912,13 +11842,13 @@ dependencies = [
+ 
+ [[package]]
+ name = "process-wrap"
+-version = "10.0.0"
++version = "9.0.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0e3f4237d0e4741eb50bc5584db701f1299c85fa31ff0274dd6445e79dc42d12"
++checksum = "fd1395947e69c07400ef4d43db0051d6f773c21f647ad8b97382fc01f0204c60"
+ dependencies = [
+  "futures",
+  "indexmap 2.14.0",
+- "nix 0.31.3",
++ "nix 0.30.1",
+  "tokio",
+  "tracing",
+  "windows 0.62.2",
+@@ -12191,7 +12121,7 @@ dependencies = [
+  "pin-project-lite",
+  "quinn-proto",
+  "quinn-udp 0.5.14",
+- "rustc-hash",
++ "rustc-hash 2.1.1",
+  "rustls",
+  "socket2 0.6.3",
+  "thiserror 2.0.18",
+@@ -12202,17 +12132,16 @@ dependencies = [
+ 
+ [[package]]
+ name = "quinn-proto"
+-version = "0.11.18"
++version = "0.11.15"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc"
++checksum = "4fcb935c5bec503c2f0e306bdd3e58bb9029dcb14fa8d9ac76e3a5256ac0763e"
+ dependencies = [
+  "bytes",
+- "getrandom 0.4.2",
++ "getrandom 0.3.4",
+  "lru-slab",
+- "rand 0.10.1",
+- "rand_pcg",
++ "rand 0.9.3",
+  "ring",
+- "rustc-hash",
++ "rustc-hash 2.1.1",
+  "rustls",
+  "rustls-pki-types",
+  "slab",
+@@ -12246,7 +12175,7 @@ dependencies = [
+  "libc",
+  "log",
+  "socket2 0.6.3",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -12685,15 +12614,6 @@ version = "0.10.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
+ 
+-[[package]]
+-name = "rand_pcg"
+-version = "0.10.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
+-dependencies = [
+- "rand_core 0.10.1",
+-]
+-
+ [[package]]
+ name = "rand_regex"
+ version = "0.18.1"
+@@ -13121,8 +13041,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "rmcp"
+-version = "3.5.1"
+-source = "git+https://github.com/modelcontextprotocol/rust-sdk?rev=4048ac40e958fb1a7d614617a2ae8d26666ee2fa#4048ac40e958fb1a7d614617a2ae8d26666ee2fa"
++version = "3.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "42b6914fac0be956fe704a38239c3f44a9f841d1b06a5713d2f638065593f5b5"
+ dependencies = [
+  "async-trait",
+  "base64 0.23.0",
+@@ -13156,8 +13077,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "rmcp-macros"
+-version = "3.5.1"
+-source = "git+https://github.com/modelcontextprotocol/rust-sdk?rev=4048ac40e958fb1a7d614617a2ae8d26666ee2fa#4048ac40e958fb1a7d614617a2ae8d26666ee2fa"
++version = "3.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cdf1c49bd4d52014b94db0877410db273c2008f01628b0252a2e9460ad9b7fda"
+ dependencies = [
+  "darling 0.24.0",
+  "proc-macro2",
+@@ -13353,7 +13275,7 @@ dependencies = [
+  "log",
+  "rand 0.10.1",
+  "rtc-shared",
+- "rustc-hash",
++ "rustc-hash 2.1.1",
+  "slab",
+  "thiserror 2.0.18",
+ ]
+@@ -13511,6 +13433,12 @@ version = "0.1.27"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
+ 
++[[package]]
++name = "rustc-hash"
++version = "1.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
++
+ [[package]]
+ name = "rustc-hash"
+ version = "2.1.1"
+@@ -13558,7 +13486,7 @@ dependencies = [
+  "errno",
+  "libc",
+  "linux-raw-sys 0.12.1",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -13617,7 +13545,7 @@ dependencies = [
+  "security-framework 3.5.1",
+  "security-framework-sys",
+  "webpki-root-certs",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -13942,6 +13870,15 @@ dependencies = [
+  "libc",
+ ]
+ 
++[[package]]
++name = "self_cell"
++version = "0.10.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e14e4d63b804dc0c7ec4a1e52bcb63f02c7ac94476755aa579edac21e01f915d"
++dependencies = [
++ "self_cell 1.2.2",
++]
++
+ [[package]]
+ name = "self_cell"
+ version = "1.2.2"
+@@ -14441,7 +14378,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
+ dependencies = [
+  "libc",
+- "windows-sys 0.60.2",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -15271,7 +15208,7 @@ dependencies = [
+  "getrandom 0.4.2",
+  "once_cell",
+  "rustix 1.1.4",
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -15327,7 +15264,7 @@ dependencies = [
+  "parking_lot",
+  "rustix 1.1.4",
+  "signal-hook",
+- "windows-sys 0.60.2",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -16288,7 +16225,7 @@ version = "0.5.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "cb30dbbd9036155e74adad6812e9898d03ec374946234fbcebd5dfc7b9187b90"
+ dependencies = [
+- "rustc-hash",
++ "rustc-hash 2.1.1",
+ ]
+ 
+ [[package]]
+@@ -17078,7 +17015,7 @@ version = "0.1.11"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+ dependencies = [
+- "windows-sys 0.48.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index 3bb85f0..055e193 100644
+index e84b9776a..5f1667188 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
 @@ -83,6 +83,7 @@ members = [
@@ -2305,7 +3389,7 @@ index 3bb85f0..055e193 100644
      "memories/read",
      "memories/write",
      "mermaid",
-@@ -458,7 +459,7 @@ semver = "1.0"
+@@ -463,7 +464,7 @@ semver = "1.0"
  sentry = "0.46.0"
  serde = { version = "1", features = ["rc"] }
  serde_ignored = "0.1.14"
@@ -2316,7 +3400,7 @@ index 3bb85f0..055e193 100644
  serde_yaml = "0.9"
 diff --git a/codex-rs/codex-transportd/BUILD_PROOF.md b/codex-rs/codex-transportd/BUILD_PROOF.md
 new file mode 100644
-index 0000000..eb2d230
+index 000000000..eb2d230a2
 --- /dev/null
 +++ b/codex-rs/codex-transportd/BUILD_PROOF.md
 @@ -0,0 +1,31 @@
@@ -2353,7 +3437,7 @@ index 0000000..eb2d230
 +```
 diff --git a/codex-rs/codex-transportd/Cargo.toml b/codex-rs/codex-transportd/Cargo.toml
 new file mode 100644
-index 0000000..fdc9c98
+index 000000000..fdc9c9833
 --- /dev/null
 +++ b/codex-rs/codex-transportd/Cargo.toml
 @@ -0,0 +1,59 @@
@@ -2418,7 +3502,7 @@ index 0000000..fdc9c98
 +sha2 = "0.10"
 diff --git a/codex-rs/codex-transportd/Dockerfile b/codex-rs/codex-transportd/Dockerfile
 new file mode 100644
-index 0000000..04eaa19
+index 000000000..04eaa1930
 --- /dev/null
 +++ b/codex-rs/codex-transportd/Dockerfile
 @@ -0,0 +1,53 @@
@@ -2477,7 +3561,7 @@ index 0000000..04eaa19
 +ENTRYPOINT ["/app/codex-transportd"]
 diff --git a/codex-rs/codex-transportd/Dockerfile.runtime b/codex-rs/codex-transportd/Dockerfile.runtime
 new file mode 100644
-index 0000000..4a2f5a9
+index 000000000..4a2f5a99b
 --- /dev/null
 +++ b/codex-rs/codex-transportd/Dockerfile.runtime
 @@ -0,0 +1,27 @@
@@ -2510,7 +3594,7 @@ index 0000000..4a2f5a9
 +ENTRYPOINT ["/app/codex-transportd"]
 diff --git a/codex-rs/codex-transportd/README.md b/codex-rs/codex-transportd/README.md
 new file mode 100644
-index 0000000..740969e
+index 000000000..740969ed2
 --- /dev/null
 +++ b/codex-rs/codex-transportd/README.md
 @@ -0,0 +1,74 @@
@@ -2590,7 +3674,7 @@ index 0000000..740969e
 +- `scripts/installation_lifecycle.sh`：端到端二进制生命周期矩阵
 diff --git a/codex-rs/codex-transportd/build.rs b/codex-rs/codex-transportd/build.rs
 new file mode 100644
-index 0000000..ca0c402
+index 000000000..ca0c4023f
 --- /dev/null
 +++ b/codex-rs/codex-transportd/build.rs
 @@ -0,0 +1,84 @@
@@ -2680,7 +3764,7 @@ index 0000000..ca0c402
 +}
 diff --git a/codex-rs/codex-transportd/docs/build_proof_commands.md b/codex-rs/codex-transportd/docs/build_proof_commands.md
 new file mode 100644
-index 0000000..e4034f1
+index 000000000..e4034f1d1
 --- /dev/null
 +++ b/codex-rs/codex-transportd/docs/build_proof_commands.md
 @@ -0,0 +1,35 @@
@@ -2721,7 +3805,7 @@ index 0000000..e4034f1
 +```
 diff --git a/codex-rs/codex-transportd/src/bootstrap.rs b/codex-rs/codex-transportd/src/bootstrap.rs
 new file mode 100644
-index 0000000..dad1d38
+index 000000000..dad1d3818
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/bootstrap.rs
 @@ -0,0 +1,17 @@
@@ -2744,7 +3828,7 @@ index 0000000..dad1d38
 +}
 diff --git a/codex-rs/codex-transportd/src/build_info.rs b/codex-rs/codex-transportd/src/build_info.rs
 new file mode 100644
-index 0000000..e4637d8
+index 000000000..e4637d8ba
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/build_info.rs
 @@ -0,0 +1,77 @@
@@ -2827,7 +3911,7 @@ index 0000000..e4637d8
 +];
 diff --git a/codex-rs/codex-transportd/src/capture.rs b/codex-rs/codex-transportd/src/capture.rs
 new file mode 100644
-index 0000000..e026e79
+index 000000000..e026e7980
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture.rs
 @@ -0,0 +1,472 @@
@@ -3305,7 +4389,7 @@ index 0000000..e026e79
 +mod writer_tests;
 diff --git a/codex-rs/codex-transportd/src/capture_begin_tests.rs b/codex-rs/codex-transportd/src/capture_begin_tests.rs
 new file mode 100644
-index 0000000..aaec9d0
+index 000000000..aaec9d047
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture_begin_tests.rs
 @@ -0,0 +1,72 @@
@@ -3383,7 +4467,7 @@ index 0000000..aaec9d0
 +}
 diff --git a/codex-rs/codex-transportd/src/capture_budget.rs b/codex-rs/codex-transportd/src/capture_budget.rs
 new file mode 100644
-index 0000000..78ce6ee
+index 000000000..78ce6eead
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture_budget.rs
 @@ -0,0 +1,87 @@
@@ -3476,7 +4560,7 @@ index 0000000..78ce6ee
 +}
 diff --git a/codex-rs/codex-transportd/src/capture_tests.rs b/codex-rs/codex-transportd/src/capture_tests.rs
 new file mode 100644
-index 0000000..81dd99e
+index 000000000..81dd99e20
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture_tests.rs
 @@ -0,0 +1,155 @@
@@ -3637,7 +4721,7 @@ index 0000000..81dd99e
 +}
 diff --git a/codex-rs/codex-transportd/src/capture_writer.rs b/codex-rs/codex-transportd/src/capture_writer.rs
 new file mode 100644
-index 0000000..e953d55
+index 000000000..e953d55bf
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture_writer.rs
 @@ -0,0 +1,314 @@
@@ -3957,7 +5041,7 @@ index 0000000..e953d55
 +mod tests;
 diff --git a/codex-rs/codex-transportd/src/capture_writer_syscall_tests.rs b/codex-rs/codex-transportd/src/capture_writer_syscall_tests.rs
 new file mode 100644
-index 0000000..4f12d5f
+index 000000000..4f12d5f25
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture_writer_syscall_tests.rs
 @@ -0,0 +1,100 @@
@@ -4063,7 +5147,7 @@ index 0000000..4f12d5f
 +}
 diff --git a/codex-rs/codex-transportd/src/capture_writer_tests.rs b/codex-rs/codex-transportd/src/capture_writer_tests.rs
 new file mode 100644
-index 0000000..a59fc63
+index 000000000..a59fc6346
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/capture_writer_tests.rs
 @@ -0,0 +1,688 @@
@@ -4757,7 +5841,7 @@ index 0000000..a59fc63
 +}
 diff --git a/codex-rs/codex-transportd/src/config.rs b/codex-rs/codex-transportd/src/config.rs
 new file mode 100644
-index 0000000..e05c718
+index 000000000..e05c7181a
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/config.rs
 @@ -0,0 +1,119 @@
@@ -4882,7 +5966,7 @@ index 0000000..e05c718
 +}
 diff --git a/codex-rs/codex-transportd/src/contract/error.rs b/codex-rs/codex-transportd/src/contract/error.rs
 new file mode 100644
-index 0000000..55c58fe
+index 000000000..55c58fe8e
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/contract/error.rs
 @@ -0,0 +1,317 @@
@@ -5205,7 +6289,7 @@ index 0000000..55c58fe
 +}
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
 new file mode 100644
-index 0000000..42bf688
+index 000000000..42bf688f8
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -0,0 +1,667 @@
@@ -5878,7 +6962,7 @@ index 0000000..42bf688
 +}
 diff --git a/codex-rs/codex-transportd/src/contract/mod.rs b/codex-rs/codex-transportd/src/contract/mod.rs
 new file mode 100644
-index 0000000..a466984
+index 000000000..a46698407
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/contract/mod.rs
 @@ -0,0 +1,90 @@
@@ -5974,7 +7058,7 @@ index 0000000..a466984
 +}
 diff --git a/codex-rs/codex-transportd/src/contract/operation.rs b/codex-rs/codex-transportd/src/contract/operation.rs
 new file mode 100644
-index 0000000..73642e6
+index 000000000..73642e6ce
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/contract/operation.rs
 @@ -0,0 +1,293 @@
@@ -6273,7 +7357,7 @@ index 0000000..73642e6
 +}
 diff --git a/codex-rs/codex-transportd/src/contract/operations_snapshot.rs b/codex-rs/codex-transportd/src/contract/operations_snapshot.rs
 new file mode 100644
-index 0000000..a26670e
+index 000000000..a26670e0b
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/contract/operations_snapshot.rs
 @@ -0,0 +1,110 @@
@@ -6389,7 +7473,7 @@ index 0000000..a26670e
 +}
 diff --git a/codex-rs/codex-transportd/src/lib.rs b/codex-rs/codex-transportd/src/lib.rs
 new file mode 100644
-index 0000000..4635f90
+index 000000000..4635f90fe
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/lib.rs
 @@ -0,0 +1,20 @@
@@ -6415,7 +7499,7 @@ index 0000000..4635f90
 +pub mod transport;
 diff --git a/codex-rs/codex-transportd/src/limits.rs b/codex-rs/codex-transportd/src/limits.rs
 new file mode 100644
-index 0000000..3bcad61
+index 000000000..3bcad6156
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/limits.rs
 @@ -0,0 +1,57 @@
@@ -6478,7 +7562,7 @@ index 0000000..3bcad61
 +}
 diff --git a/codex-rs/codex-transportd/src/main.rs b/codex-rs/codex-transportd/src/main.rs
 new file mode 100644
-index 0000000..b357021
+index 000000000..b357021fb
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/main.rs
 @@ -0,0 +1,34 @@
@@ -6518,7 +7602,7 @@ index 0000000..b357021
 +}
 diff --git a/codex-rs/codex-transportd/src/observability.rs b/codex-rs/codex-transportd/src/observability.rs
 new file mode 100644
-index 0000000..c8dbbf1
+index 000000000..c8dbbf182
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/observability.rs
 @@ -0,0 +1,213 @@
@@ -6737,7 +7821,7 @@ index 0000000..c8dbbf1
 +}
 diff --git a/codex-rs/codex-transportd/src/ops_fixture.rs b/codex-rs/codex-transportd/src/ops_fixture.rs
 new file mode 100644
-index 0000000..fcb3247
+index 000000000..fcb324773
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/ops_fixture.rs
 @@ -0,0 +1,143 @@
@@ -6886,7 +7970,7 @@ index 0000000..fcb3247
 +mod tests;
 diff --git a/codex-rs/codex-transportd/src/ops_fixture_tests.rs b/codex-rs/codex-transportd/src/ops_fixture_tests.rs
 new file mode 100644
-index 0000000..eda9363
+index 000000000..eda9363a2
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/ops_fixture_tests.rs
 @@ -0,0 +1,160 @@
@@ -7052,7 +8136,7 @@ index 0000000..eda9363
 +}
 diff --git a/codex-rs/codex-transportd/src/redaction.rs b/codex-rs/codex-transportd/src/redaction.rs
 new file mode 100644
-index 0000000..ab0be64
+index 000000000..ab0be64f0
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/redaction.rs
 @@ -0,0 +1,112 @@
@@ -7170,7 +8254,7 @@ index 0000000..ab0be64
 +}
 diff --git a/codex-rs/codex-transportd/src/server/http.rs b/codex-rs/codex-transportd/src/server/http.rs
 new file mode 100644
-index 0000000..113144f
+index 000000000..113144f1a
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/server/http.rs
 @@ -0,0 +1,207 @@
@@ -7383,7 +8467,7 @@ index 0000000..113144f
 +}
 diff --git a/codex-rs/codex-transportd/src/server/mod.rs b/codex-rs/codex-transportd/src/server/mod.rs
 new file mode 100644
-index 0000000..5f516d1
+index 000000000..5f516d1ab
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/server/mod.rs
 @@ -0,0 +1,850 @@
@@ -8239,7 +9323,7 @@ index 0000000..5f516d1
 +}
 diff --git a/codex-rs/codex-transportd/src/server/operation_metrics_tests.rs b/codex-rs/codex-transportd/src/server/operation_metrics_tests.rs
 new file mode 100644
-index 0000000..15a090a
+index 000000000..15a090ad7
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/server/operation_metrics_tests.rs
 @@ -0,0 +1,257 @@
@@ -8502,7 +9586,7 @@ index 0000000..15a090a
 +}
 diff --git a/codex-rs/codex-transportd/src/server/websocket.rs b/codex-rs/codex-transportd/src/server/websocket.rs
 new file mode 100644
-index 0000000..3eab70b
+index 000000000..3eab70b6d
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/server/websocket.rs
 @@ -0,0 +1,412 @@
@@ -8920,7 +10004,7 @@ index 0000000..3eab70b
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/agent.rs b/codex-rs/codex-transportd/src/transport/agent.rs
 new file mode 100644
-index 0000000..a27b67a
+index 000000000..a27b67a32
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/agent.rs
 @@ -0,0 +1,220 @@
@@ -9146,7 +10230,7 @@ index 0000000..a27b67a
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/auth.rs b/codex-rs/codex-transportd/src/transport/auth.rs
 new file mode 100644
-index 0000000..dce24a0
+index 000000000..dce24a00a
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/auth.rs
 @@ -0,0 +1,273 @@
@@ -9425,7 +10509,7 @@ index 0000000..dce24a0
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/auxiliary.rs b/codex-rs/codex-transportd/src/transport/auxiliary.rs
 new file mode 100644
-index 0000000..c9af539
+index 000000000..c9af53932
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/auxiliary.rs
 @@ -0,0 +1,296 @@
@@ -9727,7 +10811,7 @@ index 0000000..c9af539
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/client_pool.rs b/codex-rs/codex-transportd/src/transport/client_pool.rs
 new file mode 100644
-index 0000000..03191fa
+index 000000000..03191faa2
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/client_pool.rs
 @@ -0,0 +1,238 @@
@@ -9971,7 +11055,7 @@ index 0000000..03191fa
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
 new file mode 100644
-index 0000000..cd982c6
+index 000000000..cd982c627
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -0,0 +1,144 @@
@@ -10121,7 +11205,7 @@ index 0000000..cd982c6
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/env_mutex.rs b/codex-rs/codex-transportd/src/transport/env_mutex.rs
 new file mode 100644
-index 0000000..e9ccfc8
+index 000000000..e9ccfc89f
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/env_mutex.rs
 @@ -0,0 +1,47 @@
@@ -10174,7 +11258,7 @@ index 0000000..e9ccfc8
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/files.rs b/codex-rs/codex-transportd/src/transport/files.rs
 new file mode 100644
-index 0000000..4be1786
+index 000000000..4be1786be
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/files.rs
 @@ -0,0 +1,203 @@
@@ -10383,7 +11467,7 @@ index 0000000..4be1786
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/metadata.rs b/codex-rs/codex-transportd/src/transport/metadata.rs
 new file mode 100644
-index 0000000..b610877
+index 000000000..b610877e7
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/metadata.rs
 @@ -0,0 +1,396 @@
@@ -10785,7 +11869,7 @@ index 0000000..b610877
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/metadata_reserved_keys_tests.rs b/codex-rs/codex-transportd/src/transport/metadata_reserved_keys_tests.rs
 new file mode 100644
-index 0000000..7724d57
+index 000000000..7724d5778
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/metadata_reserved_keys_tests.rs
 @@ -0,0 +1,73 @@
@@ -10864,7 +11948,7 @@ index 0000000..7724d57
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/mod.rs b/codex-rs/codex-transportd/src/transport/mod.rs
 new file mode 100644
-index 0000000..74b02f3
+index 000000000..74b02f333
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/mod.rs
 @@ -0,0 +1,16 @@
@@ -10886,7 +11970,7 @@ index 0000000..74b02f3
 +pub mod websocket;
 diff --git a/codex-rs/codex-transportd/src/transport/official_adapter.rs b/codex-rs/codex-transportd/src/transport/official_adapter.rs
 new file mode 100644
-index 0000000..e3ebf39
+index 000000000..e3ebf39a1
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/official_adapter.rs
 @@ -0,0 +1,245 @@
@@ -11137,7 +12221,7 @@ index 0000000..e3ebf39
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/proxy.rs b/codex-rs/codex-transportd/src/transport/proxy.rs
 new file mode 100644
-index 0000000..06e3f08
+index 000000000..06e3f08ae
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/proxy.rs
 @@ -0,0 +1,210 @@
@@ -11353,7 +12437,7 @@ index 0000000..06e3f08
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/responses.rs b/codex-rs/codex-transportd/src/transport/responses.rs
 new file mode 100644
-index 0000000..2259f1e
+index 000000000..2259f1e8b
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/responses.rs
 @@ -0,0 +1,321 @@
@@ -11680,7 +12764,7 @@ index 0000000..2259f1e
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/url_policy.rs b/codex-rs/codex-transportd/src/transport/url_policy.rs
 new file mode 100644
-index 0000000..934fc11
+index 000000000..934fc110c
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/url_policy.rs
 @@ -0,0 +1,379 @@
@@ -12065,7 +13149,7 @@ index 0000000..934fc11
 +}
 diff --git a/codex-rs/codex-transportd/src/transport/websocket.rs b/codex-rs/codex-transportd/src/transport/websocket.rs
 new file mode 100644
-index 0000000..82ccb5a
+index 000000000..82ccb5a6b
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/websocket.rs
 @@ -0,0 +1,321 @@
@@ -12392,7 +13476,7 @@ index 0000000..82ccb5a
 +}
 diff --git a/codex-rs/codex-transportd/tests/capture_upstream_contract.rs b/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 new file mode 100644
-index 0000000..6c5bc4b
+index 000000000..6c5bc4b54
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 @@ -0,0 +1,202 @@
@@ -12600,7 +13684,7 @@ index 0000000..6c5bc4b
 +}
 diff --git a/codex-rs/codex-transportd/tests/contract_deployment.rs b/codex-rs/codex-transportd/tests/contract_deployment.rs
 new file mode 100644
-index 0000000..7734726
+index 000000000..7734726ab
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/contract_deployment.rs
 @@ -0,0 +1,357 @@
@@ -12963,7 +14047,7 @@ index 0000000..7734726
 +}
 diff --git a/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json b/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json
 new file mode 100644
-index 0000000..0ecba82
+index 000000000..0ecba8240
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json
 @@ -0,0 +1,143 @@
@@ -13112,7 +14196,7 @@ index 0000000..0ecba82
 +}
 diff --git a/codex-rs/codex-transportd/tests/fixtures/ops-integration-manifest.json b/codex-rs/codex-transportd/tests/fixtures/ops-integration-manifest.json
 new file mode 100644
-index 0000000..5a1dd6d
+index 000000000..5a1dd6d29
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/fixtures/ops-integration-manifest.json
 @@ -0,0 +1,5 @@
@@ -13123,7 +14207,7 @@ index 0000000..5a1dd6d
 +}
 diff --git a/codex-rs/codex-transportd/tests/lifecycle.rs b/codex-rs/codex-transportd/tests/lifecycle.rs
 new file mode 100644
-index 0000000..c375dbd
+index 000000000..c375dbd9c
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/lifecycle.rs
 @@ -0,0 +1,149 @@
@@ -13278,7 +14362,7 @@ index 0000000..c375dbd
 +}
 diff --git a/codex-rs/codex-transportd/tests/metadata_reserved_keys_rejection.rs b/codex-rs/codex-transportd/tests/metadata_reserved_keys_rejection.rs
 new file mode 100644
-index 0000000..f71d833
+index 000000000..f71d83337
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/metadata_reserved_keys_rejection.rs
 @@ -0,0 +1,143 @@
@@ -13427,7 +14511,7 @@ index 0000000..f71d833
 +}
 diff --git a/codex-rs/codex-transportd/tests/operations_snapshot_golden.rs b/codex-rs/codex-transportd/tests/operations_snapshot_golden.rs
 new file mode 100644
-index 0000000..f07ae7a
+index 000000000..f07ae7a46
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/operations_snapshot_golden.rs
 @@ -0,0 +1,56 @@
@@ -13489,7 +14573,7 @@ index 0000000..f07ae7a
 +}
 diff --git a/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs b/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs
 new file mode 100644
-index 0000000..697b361
+index 000000000..697b361dd
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs
 @@ -0,0 +1,535 @@
@@ -14030,7 +15114,7 @@ index 0000000..697b361
 +}
 diff --git a/codex-rs/codex-transportd/tests/val006_adversarial.rs b/codex-rs/codex-transportd/tests/val006_adversarial.rs
 new file mode 100644
-index 0000000..195d4e0
+index 000000000..195d4e078
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/val006_adversarial.rs
 @@ -0,0 +1,176 @@
@@ -14212,7 +15296,7 @@ index 0000000..195d4e0
 +}
 diff --git a/codex-rs/codex-transportd/tests/websocket_relay.rs b/codex-rs/codex-transportd/tests/websocket_relay.rs
 new file mode 100644
-index 0000000..ba2cb2e
+index 000000000..ba2cb2e18
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/websocket_relay.rs
 @@ -0,0 +1,214 @@
@@ -14432,7 +15516,7 @@ index 0000000..ba2cb2e
 +}
 diff --git a/deploy/build-sidecar-image-index-test.sh b/deploy/build-sidecar-image-index-test.sh
 new file mode 100755
-index 0000000..8e9f3a2
+index 000000000..8e9f3a217
 --- /dev/null
 +++ b/deploy/build-sidecar-image-index-test.sh
 @@ -0,0 +1,46 @@
@@ -14484,7 +15568,7 @@ index 0000000..8e9f3a2
 +echo "build-sidecar base image index test passed"
 diff --git a/deploy/build-sidecar-platform-test.sh b/deploy/build-sidecar-platform-test.sh
 new file mode 100755
-index 0000000..54718f1
+index 000000000..54718f14f
 --- /dev/null
 +++ b/deploy/build-sidecar-platform-test.sh
 @@ -0,0 +1,211 @@
@@ -14701,7 +15785,7 @@ index 0000000..54718f1
 +echo "build-sidecar platform profile test passed"
 diff --git a/deploy/build-sidecar-profile-lib.sh b/deploy/build-sidecar-profile-lib.sh
 new file mode 100755
-index 0000000..151afaf
+index 000000000..151afaf9a
 --- /dev/null
 +++ b/deploy/build-sidecar-profile-lib.sh
 @@ -0,0 +1,108 @@
@@ -14815,7 +15899,7 @@ index 0000000..151afaf
 +}
 diff --git a/deploy/build-sidecar-volume-test.sh b/deploy/build-sidecar-volume-test.sh
 new file mode 100755
-index 0000000..e4f784c
+index 000000000..e4f784c7a
 --- /dev/null
 +++ b/deploy/build-sidecar-volume-test.sh
 @@ -0,0 +1,274 @@
@@ -15095,7 +16179,7 @@ index 0000000..e4f784c
 +exit 1
 diff --git a/deploy/build-sidecar.sh b/deploy/build-sidecar.sh
 new file mode 100755
-index 0000000..0755cf6
+index 000000000..0755cf6f8
 --- /dev/null
 +++ b/deploy/build-sidecar.sh
 @@ -0,0 +1,350 @@
@@ -15451,7 +16535,7 @@ index 0000000..0755cf6
 +echo "build-sidecar.sh 全部通过（profile=${BUILD_PROFILE} mode=${MODE} receipt=${RECEIPT}）"
 diff --git a/deploy/smoke-volume-lib.sh b/deploy/smoke-volume-lib.sh
 new file mode 100755
-index 0000000..2952f7a
+index 000000000..2952f7a43
 --- /dev/null
 +++ b/deploy/smoke-volume-lib.sh
 @@ -0,0 +1,55 @@
@@ -15512,7 +16596,7 @@ index 0000000..2952f7a
 +}
 diff --git a/deploy/vendor-debs-arm64.lock b/deploy/vendor-debs-arm64.lock
 new file mode 100644
-index 0000000..e69de29
+index 000000000..e69de29bb
 diff --git a/deploy/vendor-debs-arm64/ca-certificates_20250419_arm64.deb b/deploy/vendor-debs-arm64/ca-certificates_20250419_arm64.deb
 new file mode 100644
 index 0000000000000000000000000000000000000000..c4facbfb4df962abba2d94ef5abbd711704cf852
@@ -253877,7 +254961,7 @@ HcmV?d00001
 
 diff --git a/deploy/vendor-debs-arm64/manifest.sha256 b/deploy/vendor-debs-arm64/manifest.sha256
 new file mode 100644
-index 0000000..65e8a92
+index 000000000..65e8a928e
 --- /dev/null
 +++ b/deploy/vendor-debs-arm64/manifest.sha256
 @@ -0,0 +1,37 @@
@@ -289764,7 +290848,7 @@ HcmV?d00001
 
 diff --git a/deploy/vendor-debs-test.py b/deploy/vendor-debs-test.py
 new file mode 100755
-index 0000000..b930d5b
+index 000000000..b930d5baf
 --- /dev/null
 +++ b/deploy/vendor-debs-test.py
 @@ -0,0 +1,104 @@
@@ -289874,7 +290958,7 @@ index 0000000..b930d5b
 +    unittest.main()
 diff --git a/deploy/vendor-debs.py b/deploy/vendor-debs.py
 new file mode 100755
-index 0000000..068f64a
+index 000000000..068f64a13
 --- /dev/null
 +++ b/deploy/vendor-debs.py
 @@ -0,0 +1,228 @@
@@ -537026,7 +538110,7 @@ HcmV?d00001
 
 diff --git a/deploy/vendor-debs/manifest.sha256 b/deploy/vendor-debs/manifest.sha256
 new file mode 100644
-index 0000000..fff9c22
+index 000000000..fff9c22a4
 --- /dev/null
 +++ b/deploy/vendor-debs/manifest.sha256
 @@ -0,0 +1,37 @@
@@ -573715,7 +574799,7 @@ HcmV?d00001
 
 diff --git a/docs/REPLAY0905_SQUASH_MAP.md b/docs/REPLAY0905_SQUASH_MAP.md
 new file mode 100644
-index 0000000..54c3b9e
+index 000000000..54c3b9e14
 --- /dev/null
 +++ b/docs/REPLAY0905_SQUASH_MAP.md
 @@ -0,0 +1,37 @@
@@ -573758,7 +574842,7 @@ index 0000000..54c3b9e
 +- 未 push；未跑 hosted；codex receipt（bff998c）仍归属 granular 线。
 diff --git a/docs/workflows/README.md b/docs/workflows/README.md
 new file mode 100644
-index 0000000..eb471a5
+index 000000000..eb471a561
 --- /dev/null
 +++ b/docs/workflows/README.md
 @@ -0,0 +1,10 @@
@@ -573774,7 +574858,7 @@ index 0000000..eb471a5
 +  through the CWF merge queue after review.
 diff --git a/replay/gate.sh b/replay/gate.sh
 new file mode 100755
-index 0000000..010a397
+index 000000000..010a39707
 --- /dev/null
 +++ b/replay/gate.sh
 @@ -0,0 +1,88 @@
@@ -573868,7 +574952,7 @@ index 0000000..010a397
 +echo "PASS: $LINE $EXPECTED_COUNT compact commits, source tree $SOURCE_TREE"
 diff --git a/replay/manifest.yaml b/replay/manifest.yaml
 new file mode 100644
-index 0000000..a087980
+index 000000000..a0879802b
 --- /dev/null
 +++ b/replay/manifest.yaml
 @@ -0,0 +1,10 @@
@@ -573884,7 +574968,7 @@ index 0000000..a087980
 +# （见 patches/transportd/series.yaml 与证据提交的 replay/manifest.yaml）。
 diff --git a/replay/worker-ci-static-test.sh b/replay/worker-ci-static-test.sh
 new file mode 100755
-index 0000000..43bd719
+index 000000000..43bd719a9
 --- /dev/null
 +++ b/replay/worker-ci-static-test.sh
 @@ -0,0 +1,136 @@
@@ -574026,7 +575110,7 @@ index 0000000..43bd719
 +printf 'PASS: family-api-codex worker CI contract\n'
 diff --git a/replay/worker-ci.json b/replay/worker-ci.json
 new file mode 100644
-index 0000000..25eb794
+index 000000000..25eb794f6
 --- /dev/null
 +++ b/replay/worker-ci.json
 @@ -0,0 +1,7 @@
@@ -574039,7 +575123,7 @@ index 0000000..25eb794
 +}
 diff --git a/scripts/installation_lifecycle.sh b/scripts/installation_lifecycle.sh
 new file mode 100755
-index 0000000..cacf65d
+index 000000000..cacf65dcd
 --- /dev/null
 +++ b/scripts/installation_lifecycle.sh
 @@ -0,0 +1,92 @@
@@ -574137,7 +575221,7 @@ index 0000000..cacf65d
 +echo "LIFECYCLE_MATRIX=pass id=$ID1 restart=$ID2 rebuild=$ID3 new_volume=$ID4 restore=$ID5 injection_rejected=$ID6"
 diff --git a/sidecar-image-receipt.txt b/sidecar-image-receipt.txt
 new file mode 100644
-index 0000000..7c96fbb
+index 000000000..7c96fbb75
 --- /dev/null
 +++ b/sidecar-image-receipt.txt
 @@ -0,0 +1,12 @@
@@ -574153,3 +575237,6 @@ index 0000000..7c96fbb
 +lock_sha256:              70482f90e3fd7b8c2b5baad7b47f44956d000998d1812da5b6ff68d6073b9bc6
 +v8_sha256:                8aed98637db7e77dc8bfb8bb4759ec5bde472d0bf7943f58e0e62a350945c559
 +build:                    2026-08-18T08:03:20Z
+-- 
+2.48.1
+

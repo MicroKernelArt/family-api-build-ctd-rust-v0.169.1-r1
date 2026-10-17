@@ -1,19 +1,19 @@
 # WIRE_COMPATIBILITY（T-010 / TLS-CTD-001 §18.5）
 
-官方原版 `rust-v0.159.2` 与 sidecar candidate 的线级对照报告。本文档与
+官方原版 `rust-v0.163.0` 与 sidecar candidate 的线级对照报告。本文档与
 `/info`（`build_info.rs`）、`PATCHES.md`、SBOM 共同构成 wire gate 证据链。
 
 > **范围说明**：下表的对照是 **rust-v0.144.1 时代**（T-010）做的，尚未对当前
-> rust-v0.159.2 基线重跑；因此 `wire_status` 记 `unverified`，release 模式的
+> rust-v0.163.0 基线重跑；因此 `wire_status` 记 `unverified`，release 模式的
 > wire gate 会据此拒绝。本文件描述的是 candidate，但其中的测量数据属于上一代基线。
 
 ## 基线
 
 | 项 | 值 |
 |---|---|
-| 官方 tag | `rust-v0.159.2` |
-| 官方 commit | `ff6aec96948b70d94983af2641a6b67c94faeff5` |
-| 官方 lock SHA-256 | `4fab6fe99180e2b8f305bd4b33c1b4bd825e3fa4cdef1045be750843bd3d431e` |
+| 官方 tag | `rust-v0.163.0` |
+| 官方 commit | `83086188ae0614bd882818ff1aa23f3194962012` |
+| 官方 lock SHA-256 | `17cdd862471774ba7aef836aaf0a0a3ed76bd23e503b1fc7278c89d1f2719d03` |
 | toolchain | `1.95.0` |
 | target | `x86_64-unknown-linux-gnu`（ion2 linux/amd64） |
 | reference runner | clean official build（同 lock/toolchain/image） |
@@ -74,8 +74,8 @@ source commit → Cargo.lock → SBOM → image digest（/info + readiness 校�
 
 ## gate metadata（由证据提交写入；wire-gate.sh 逐字段比对 series.yaml）
 
-wire_source_commit: f337881f332a78e04d33761a8cb03d4ead168438
-wire_source_tree: 6730446c734fad9c0409087634a332b596a04be4
-# unverified：0.144.1 时代的线级对照（T-010）尚未对 rust-v0.159.2 基线重跑。
+wire_source_commit: 1702d2d1b9fecdd632042991b333596f56edeeee
+wire_source_tree: 51d9287d59e4d606f1fd290809969cd797ebaaf0
+# unverified：0.144.1 时代的线级对照（T-010）尚未对 rust-v0.163.0 基线重跑。
 # 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
 wire_status: unverified

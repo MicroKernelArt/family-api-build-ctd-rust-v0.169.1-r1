@@ -1,7 +1,7 @@
-From cfb9875b573b7bb49d824738cdb5c3048e3fd61d Mon Sep 17 00:00:00 2001
+From 747b62086052a180119409680a070872e7f09938 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 02:17:57 +0800
-Subject: [PATCH 33/34] replay0905-v0159.2: re-export the patch series against
+Subject: [PATCH 33/37] replay0905-v0159.2: re-export the patch series against
  the hookpoint work
 
 Evidence-only commit (P-0). The manifest still named e517cf8 as the
@@ -75,7 +75,7 @@ release_id / release_status are unchanged.
  create mode 100644 patches/transportd/full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch
 
 diff --git a/PATCHES.md b/PATCHES.md
-index 195b87e..0daa9d9 100644
+index 195b87e1c..0daa9d999 100644
 --- a/PATCHES.md
 +++ b/PATCHES.md
 @@ -9,17 +9,23 @@ metadata adapter、raw response adapter、显式 proxy route adapter。
@@ -108,7 +108,7 @@ index 195b87e..0daa9d9 100644
  完整、逐行的机器生成清单见 `patches/transportd/modified-paths.txt`，生成命令
  `bash patches/transportd/tools/gen-modification-surface.sh`（等价于
 diff --git a/SBOM.md b/SBOM.md
-index a42b3b8..a0335a5 100644
+index a42b3b802..a0335a50e 100644
 --- a/SBOM.md
 +++ b/SBOM.md
 @@ -34,9 +34,9 @@
@@ -125,7 +125,7 @@ index a42b3b8..a0335a5 100644
  sbom_status: generated-from-locks
  sbom_artifact_status: external-receipt-required
 diff --git a/WIRE_COMPATIBILITY.md b/WIRE_COMPATIBILITY.md
-index bc6f82d..7919954 100644
+index bc6f82d47..7919954ac 100644
 --- a/WIRE_COMPATIBILITY.md
 +++ b/WIRE_COMPATIBILITY.md
 @@ -74,8 +74,8 @@ source commit → Cargo.lock → SBOM → image digest（/info + readiness 校
@@ -140,7 +140,7 @@ index bc6f82d..7919954 100644
  # 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
  wire_status: unverified
 diff --git a/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch b/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
-index 6e62928..73e8b42 100644
+index 6e629280d..73e8b4219 100644
 --- a/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
 +++ b/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
 @@ -1,7 +1,7 @@
@@ -153,7 +153,7 @@ index 6e62928..73e8b42 100644
  (cherry picked from commit 12066620d4536cbbdacf71bea66692fe8c1572e1)
  ---
 diff --git a/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch b/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
-index 7977b35..6fd823d 100644
+index 7977b35f3..6fd823d11 100644
 --- a/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
 +++ b/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
 @@ -1,7 +1,7 @@
@@ -166,7 +166,7 @@ index 7977b35..6fd823d 100644
  (cherry picked from commit 49cde2c56bf56639d18c3a94d057f10147963c28)
  ---
 diff --git a/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch b/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
-index 62f6db3..0826f05 100644
+index 62f6db39d..0826f053a 100644
 --- a/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
 +++ b/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
 @@ -1,7 +1,7 @@
@@ -179,7 +179,7 @@ index 62f6db3..0826f05 100644
  (cherry picked from commit 4027ab3d5883d56605d5476b40f3ef8c923d235d)
  ---
 diff --git a/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch b/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
-index 775c60f..2693709 100644
+index 775c60f7b..269370940 100644
 --- a/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
 +++ b/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
 @@ -1,7 +1,7 @@
@@ -192,7 +192,7 @@ index 775c60f..2693709 100644
  
  (cherry picked from commit 6581ca6873492a5cee087702792b3b3f5511bf3f)
 diff --git a/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch b/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
-index a4d0aeb..3f2a4a0 100644
+index a4d0aeb50..3f2a4a044 100644
 --- a/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
 +++ b/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
 @@ -1,7 +1,7 @@
@@ -205,7 +205,7 @@ index a4d0aeb..3f2a4a0 100644
  (cherry picked from commit da3d82fbc21fb781ffe71b02896c39bc0e0054c2)
  ---
 diff --git a/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch b/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
-index 16d749c..65bc6cd 100644
+index 16d749c79..65bc6cd13 100644
 --- a/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
 +++ b/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
 @@ -1,7 +1,7 @@
@@ -218,7 +218,7 @@ index 16d749c..65bc6cd 100644
  (cherry picked from commit 5638c506fc6806fea207e58062155d4fdd9e3722)
  ---
 diff --git a/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch b/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
-index dd52b45..553c055 100644
+index dd52b45a7..553c055dc 100644
 --- a/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
 +++ b/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
 @@ -1,7 +1,7 @@
@@ -231,7 +231,7 @@ index dd52b45..553c055 100644
  (cherry picked from commit 478a35ecf486e0902faa90b1673078b7bd8ac87b)
  ---
 diff --git a/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch b/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
-index 93e0928..b80bc10 100644
+index 93e09280a..b80bc10e0 100644
 --- a/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
 +++ b/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
 @@ -1,7 +1,7 @@
@@ -244,7 +244,7 @@ index 93e0928..b80bc10 100644
  (cherry picked from commit 148b34118050f2e2135b610ee3031612386cc171)
  ---
 diff --git a/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch b/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
-index b4e1087..202c67c 100644
+index b4e1087ee..202c67c56 100644
 --- a/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
 +++ b/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
 @@ -1,7 +1,7 @@
@@ -257,7 +257,7 @@ index b4e1087..202c67c 100644
  
  (cherry picked from commit 5ecb30d92d406caf292414a1c7207ff7954f87ac)
 diff --git a/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch b/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
-index bedf5bd..dc2e651 100644
+index bedf5bd9e..dc2e65125 100644
 --- a/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
 +++ b/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
 @@ -1,7 +1,7 @@
@@ -270,7 +270,7 @@ index bedf5bd..dc2e651 100644
  
  default_deadline_for: compact 1300s, Responses/downloads 3600s, others
 diff --git a/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch b/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
-index d832d87..abad0f2 100644
+index d832d87ba..abad0f213 100644
 --- a/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
 +++ b/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
 @@ -1,7 +1,7 @@
@@ -283,7 +283,7 @@ index d832d87..abad0f2 100644
  
  (cherry picked from commit 9ef2db70bfca0d9f1137935d6922c69c0c3649ad)
 diff --git a/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch b/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
-index 3180d84..fe689fd 100644
+index 3180d842e..fe689fd14 100644
 --- a/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
 +++ b/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
 @@ -1,7 +1,7 @@
@@ -296,7 +296,7 @@ index 3180d84..fe689fd 100644
  
  (cherry picked from commit b96a968de2257936aed15a90f28ee039c217ee7d)
 diff --git a/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch b/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
-index 328277c..648413d 100644
+index 328277c47..648413d53 100644
 --- a/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
 +++ b/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
 @@ -1,7 +1,7 @@
@@ -309,7 +309,7 @@ index 328277c..648413d 100644
  
  (cherry picked from commit cc0fd9d0676d1b898093d01fb19fe700f355d93e)
 diff --git a/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch b/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
-index 5f17ec0..2e078f9 100644
+index 5f17ec004..2e078f96a 100644
 --- a/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
 +++ b/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
 @@ -1,7 +1,7 @@
@@ -322,7 +322,7 @@ index 5f17ec0..2e078f9 100644
  
  (cherry picked from commit bc5f49918f60a2e7e2ad06bf3e4d20439004ae3a)
 diff --git a/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch b/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
-index 5227b46..cf4d2b3 100644
+index 5227b46c9..cf4d2b333 100644
 --- a/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 +++ b/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 @@ -1,7 +1,7 @@
@@ -335,7 +335,7 @@ index 5227b46..cf4d2b3 100644
  
  (cherry picked from commit f205843251749b9f476a182fab6eb6900491de7f)
 diff --git a/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch b/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
-index 05ff9be..31456b6 100644
+index 05ff9be04..31456b6ec 100644
 --- a/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 +++ b/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 @@ -1,7 +1,7 @@
@@ -348,7 +348,7 @@ index 05ff9be..31456b6 100644
  
  (cherry picked from commit e495d8281c625b15cba497f0fd415851f32a6efd)
 diff --git a/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch b/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
-index 2078463..9f193dd 100644
+index 207846363..9f193dd7d 100644
 --- a/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 +++ b/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 @@ -1,7 +1,7 @@
@@ -361,7 +361,7 @@ index 2078463..9f193dd 100644
  Release gates self-contained and input-validated: export/sbom/wire/
  release-evidence gates + static-test now validate non-sh inputs,
 diff --git a/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch b/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
-index 499ae9b..6d09543 100644
+index 499ae9beb..6d0954383 100644
 --- a/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
 +++ b/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
 @@ -1,7 +1,7 @@
@@ -374,7 +374,7 @@ index 499ae9b..6d09543 100644
  
  (cherry picked from commit 3af83a59bbb9cbbe6161c355ed377164ee0b7cb4)
 diff --git a/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch b/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
-index f99f14d..0f39e72 100644
+index f99f14d9f..0f39e7208 100644
 --- a/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
 +++ b/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
 @@ -1,7 +1,7 @@
@@ -387,7 +387,7 @@ index f99f14d..0f39e72 100644
  
  R-CTD (rust_sidecar) previously rebuilt every upstream request from a blank
 diff --git a/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch b/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
-index f9c643d..7ab45fd 100644
+index f9c643de2..7ab45fd29 100644
 --- a/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
 +++ b/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
 @@ -1,7 +1,7 @@
@@ -400,7 +400,7 @@ index f9c643d..7ab45fd 100644
  
  R-Go vs R-CTD wire parity (tools/ctd-parity/out/report.txt) shows exactly four
 diff --git a/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch b/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
-index ad3c9c3..a959fb2 100644
+index ad3c9c3ab..a959fb25e 100644
 --- a/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
 +++ b/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
 @@ -1,7 +1,7 @@
@@ -413,7 +413,7 @@ index ad3c9c3..a959fb2 100644
  
  The Go identity projection now derives x-client-request-id = md.SessionID (the
 diff --git a/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch b/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
-index e4a78ee..c4423d3 100644
+index e4a78ee4b..c4423d3f3 100644
 --- a/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
 +++ b/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
 @@ -1,7 +1,7 @@
@@ -426,7 +426,7 @@ index e4a78ee..c4423d3 100644
  
  The 0.159.0 line's Cargo.lock carried cargo's normalization of the
 diff --git a/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch b/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
-index ed3f8d9..3d91ac6 100644
+index ed3f8d909..3d91ac6ab 100644
 --- a/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 +++ b/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 @@ -1,7 +1,7 @@
@@ -440,7 +440,7 @@ index ed3f8d9..3d91ac6 100644
  Baseline identity bump (UPSTREAM_UPGRADE.md checklist item 1) so the
 diff --git a/patches/transportd/full/0024-replay0905-v0159.2-re-export-the-patch-series-agains.patch b/patches/transportd/full/0024-replay0905-v0159.2-re-export-the-patch-series-agains.patch
 new file mode 100644
-index 0000000..2f55d3c
+index 000000000..2f55d3ca1
 --- /dev/null
 +++ b/patches/transportd/full/0024-replay0905-v0159.2-re-export-the-patch-series-agains.patch
 @@ -0,0 +1,586107 @@
@@ -586553,7 +586553,7 @@ index 0000000..2f55d3c
 ++# 本线由 rust-v0.159.0 线整线重放而来；除证据路径外不存在 post-source 例外。
 diff --git a/patches/transportd/full/0025-feat-transportd-wire-the-X-CTD-Hookpoint-switch-v1-d.patch b/patches/transportd/full/0025-feat-transportd-wire-the-X-CTD-Hookpoint-switch-v1-d.patch
 new file mode 100644
-index 0000000..1dae13e
+index 000000000..1dae13e22
 --- /dev/null
 +++ b/patches/transportd/full/0025-feat-transportd-wire-the-X-CTD-Hookpoint-switch-v1-d.patch
 @@ -0,0 +1,448 @@
@@ -587007,7 +587007,7 @@ index 0000000..1dae13e
 +         };
 diff --git a/patches/transportd/full/0026-feat-transportd-implement-hookpoint-v3-passthrough-G.patch b/patches/transportd/full/0026-feat-transportd-implement-hookpoint-v3-passthrough-G.patch
 new file mode 100644
-index 0000000..6595adb
+index 000000000..6595adbea
 --- /dev/null
 +++ b/patches/transportd/full/0026-feat-transportd-implement-hookpoint-v3-passthrough-G.patch
 @@ -0,0 +1,1537 @@
@@ -588550,7 +588550,7 @@ index 0000000..6595adb
 ++}
 diff --git a/patches/transportd/full/0027-feat-transportd-align-v1-outbound-wire-shape-with-of.patch b/patches/transportd/full/0027-feat-transportd-align-v1-outbound-wire-shape-with-of.patch
 new file mode 100644
-index 0000000..de0a0a6
+index 000000000..de0a0a6e4
 --- /dev/null
 +++ b/patches/transportd/full/0027-feat-transportd-align-v1-outbound-wire-shape-with-of.patch
 @@ -0,0 +1,1120 @@
@@ -589676,7 +589676,7 @@ index 0000000..de0a0a6
 ++}
 diff --git a/patches/transportd/full/0028-fix-transportd-align-v1-compact-outbound-wire-shape-.patch b/patches/transportd/full/0028-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
 new file mode 100644
-index 0000000..699e64e
+index 000000000..699e64e00
 --- /dev/null
 +++ b/patches/transportd/full/0028-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
 @@ -0,0 +1,677 @@
@@ -590359,7 +590359,7 @@ index 0000000..699e64e
 ++}
 diff --git a/patches/transportd/full/0029-fix-transportd-align-v1-compact-outbound-wire-shape-.patch b/patches/transportd/full/0029-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
 new file mode 100644
-index 0000000..f4eab8f
+index 000000000..f4eab8f93
 --- /dev/null
 +++ b/patches/transportd/full/0029-fix-transportd-align-v1-compact-outbound-wire-shape-.patch
 @@ -0,0 +1,622 @@
@@ -590987,7 +590987,7 @@ index 0000000..f4eab8f
 + }
 diff --git a/patches/transportd/full/0030-fix-transportd-make-v1-prompt_cache_key-follow-the-o.patch b/patches/transportd/full/0030-fix-transportd-make-v1-prompt_cache_key-follow-the-o.patch
 new file mode 100644
-index 0000000..aed10be
+index 000000000..aed10beee
 --- /dev/null
 +++ b/patches/transportd/full/0030-fix-transportd-make-v1-prompt_cache_key-follow-the-o.patch
 @@ -0,0 +1,272 @@
@@ -591265,7 +591265,7 @@ index 0000000..aed10be
 +         let err = CodexResponsesMetadata::try_for_transport(
 diff --git a/patches/transportd/full/0031-fix-transportd-carry-compact-only-x-codex-installati.patch b/patches/transportd/full/0031-fix-transportd-carry-compact-only-x-codex-installati.patch
 new file mode 100644
-index 0000000..57d0722
+index 000000000..57d0722e2
 --- /dev/null
 +++ b/patches/transportd/full/0031-fix-transportd-carry-compact-only-x-codex-installati.patch
 @@ -0,0 +1,942 @@
@@ -592213,7 +592213,7 @@ index 0000000..57d0722
 ++}
 diff --git a/patches/transportd/full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch b/patches/transportd/full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch
 new file mode 100644
-index 0000000..09fa773
+index 000000000..09fa7730c
 --- /dev/null
 +++ b/patches/transportd/full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch
 @@ -0,0 +1,56 @@
@@ -592274,7 +592274,7 @@ index 0000000..09fa773
 +         assert_eq!(
 +             header_value(&head, "x-codex-installation-id"),
 diff --git a/patches/transportd/modified-paths.txt b/patches/transportd/modified-paths.txt
-index 5fd8b0a..12d72f7 100644
+index 5fd8b0a22..12d72f77c 100644
 --- a/patches/transportd/modified-paths.txt
 +++ b/patches/transportd/modified-paths.txt
 @@ -1,9 +1,9 @@
@@ -592323,7 +592323,7 @@ index 5fd8b0a..12d72f7 100644
  patches/transportd/series.yaml
  patches/transportd/tools/bin-verify.sh
 diff --git a/patches/transportd/series.yaml b/patches/transportd/series.yaml
-index 49cc361..99ca24b 100644
+index 49cc36105..99ca24b75 100644
 --- a/patches/transportd/series.yaml
 +++ b/patches/transportd/series.yaml
 @@ -9,11 +9,11 @@ upstream: openai/codex
@@ -592357,7 +592357,7 @@ index 49cc361..99ca24b 100644
 +  - full/0031-fix-transportd-carry-compact-only-x-codex-installati.patch
 +  - full/0032-test-transportd-pin-the-exact-v3-compact-wire-header.patch
 diff --git a/replay/manifest.yaml b/replay/manifest.yaml
-index 5ae190d..f15679d 100644
+index 5ae190de7..f15679d1b 100644
 --- a/replay/manifest.yaml
 +++ b/replay/manifest.yaml
 @@ -4,11 +4,11 @@ repository: family-api-codex
@@ -592417,3 +592417,6 @@ index 5ae190d..f15679d 100644
 +# 从实际链生成；除证据路径外不存在 post-source 例外。
 +# 本线由 rust-v0.159.0 线整线重放而来，并于 2026-10-02 针对 hookpoint v1/v3
 +# 对齐工作做了第二次重导出（series_entries 23 -> 32）。
+-- 
+2.48.1
+

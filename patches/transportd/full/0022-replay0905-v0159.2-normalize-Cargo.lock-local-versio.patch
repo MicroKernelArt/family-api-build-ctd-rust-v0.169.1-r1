@@ -1,7 +1,7 @@
-From 7100f53217c6ae2f89482290754365ca58a05fed Mon Sep 17 00:00:00 2001
+From 6aa57d9c77f7fe331a0d35929411273282e500d2 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:16:31 +0800
-Subject: [PATCH 22/34] replay0905-v0159.2: normalize Cargo.lock local versions
+Subject: [PATCH 22/37] replay0905-v0159.2: normalize Cargo.lock local versions
  to 0.159.2
 
 The 0.159.0 line's Cargo.lock carried cargo's normalization of the
@@ -21,7 +21,7 @@ codex-transportd package node. No dependency graph drift.
  1 file changed, 160 insertions(+), 160 deletions(-)
 
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index 0ce8434..2b8d88d 100644
+index 0ce8434eb..2b8d88d53 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
 @@ -268,7 +268,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
@@ -1444,3 +1444,6 @@ index 0ce8434..2b8d88d 100644
  dependencies = [
   "anyhow",
   "assert_cmd",
+-- 
+2.48.1
+

@@ -1,7 +1,7 @@
-From b525b18365ac4cd1626f15105a5b647933271e0c Mon Sep 17 00:00:00 2001
+From ef3bdb60e48e3f3b8186228f3c188e1ae475c46a Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 00:10:30 +0800
-Subject: [PATCH 32/34] test(transportd): pin the exact v3 compact wire header
+Subject: [PATCH 32/37] test(transportd): pin the exact v3 compact wire header
  sequence
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -24,7 +24,7 @@ Content-Transfer-Encoding: 8bit
  1 file changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/transport/responses_v3.rs b/codex-rs/codex-transportd/src/transport/responses_v3.rs
-index 9153261..d1a1b7e 100644
+index 91532615b..d1a1b7e38 100644
 --- a/codex-rs/codex-transportd/src/transport/responses_v3.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses_v3.rs
 @@ -1242,8 +1242,9 @@ mod tests {
@@ -54,3 +54,6 @@ index 9153261..d1a1b7e 100644
          );
          assert_eq!(
              header_value(&head, "x-codex-installation-id"),
+-- 
+2.48.1
+

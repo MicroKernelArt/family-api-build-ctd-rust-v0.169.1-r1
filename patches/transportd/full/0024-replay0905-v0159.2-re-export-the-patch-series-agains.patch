@@ -1,7 +1,7 @@
-From 5f861161fea69ec8537c25b9a4b45f6406bc611e Mon Sep 17 00:00:00 2001
+From e7b795259a8ec04905fb9ad83944faba4a69fc29 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:19:43 +0800
-Subject: [PATCH 24/34] replay0905-v0159.2: re-export the patch series against
+Subject: [PATCH 24/37] replay0905-v0159.2: re-export the patch series against
  the 0.159.2 base
 
 Evidence-only commit: records the 23-commit product chain replayed onto
@@ -56,7 +56,7 @@ in lockstep (out of scope for the Rust repo).
  create mode 100644 patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 
 diff --git a/PATCHES.md b/PATCHES.md
-index 8751c0b..195b87e 100644
+index 8751c0bc0..195b87e1c 100644
 --- a/PATCHES.md
 +++ b/PATCHES.md
 @@ -1,22 +1,29 @@
@@ -106,7 +106,7 @@ index 8751c0b..195b87e 100644
  | P-005 | `UPSTREAM_BASE.md` / `PATCHES.md` / `codex-rs/codex-transportd/BUILD_PROOF.md` | fork 冻结证据 | CP-002 gate | T-002 |
  | P-006 | `codex-rs/core/src/responses_metadata.rs` | 新增 `CodexResponsesMetadata::try_for_transport`（UUIDv7/window 校验窄构造器）与 `TransportMetadataError`；`client_metadata`/`compatibility_headers` 转 pub | metadata adapter（FR-009/FR-010） | T-005 |
 diff --git a/SBOM.md b/SBOM.md
-index 6b72b99..a42b3b8 100644
+index 6b72b9967..a42b3b802 100644
 --- a/SBOM.md
 +++ b/SBOM.md
 @@ -34,9 +34,9 @@
@@ -123,7 +123,7 @@ index 6b72b99..a42b3b8 100644
  sbom_status: generated-from-locks
  sbom_artifact_status: external-receipt-required
 diff --git a/WIRE_COMPATIBILITY.md b/WIRE_COMPATIBILITY.md
-index 986ca59..bc6f82d 100644
+index 986ca59b6..bc6f82d47 100644
 --- a/WIRE_COMPATIBILITY.md
 +++ b/WIRE_COMPATIBILITY.md
 @@ -74,8 +74,8 @@ source commit → Cargo.lock → SBOM → image digest（/info + readiness 校
@@ -138,7 +138,7 @@ index 986ca59..bc6f82d 100644
  # 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
  wire_status: unverified
 diff --git a/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch b/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
-index 8106188..6e62928 100644
+index 81061883d..6e629280d 100644
 --- a/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
 +++ b/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
 @@ -1,8 +1,9 @@
@@ -2205,7 +2205,7 @@ index 8106188..6e62928 100644
  +++ b/sidecar-image-receipt.txt
  @@ -0,0 +1,12 @@
 diff --git a/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch b/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
-index adfec1f..7977b35 100644
+index adfec1f04..7977b35f3 100644
 --- a/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
 +++ b/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
 @@ -1,8 +1,9 @@
@@ -2284,7 +2284,7 @@ index adfec1f..7977b35 100644
  +++ b/codex-rs/codex-transportd/src/transport/compact.rs
  @@ -1,6 +1,6 @@
 diff --git a/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch b/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
-index 9e8f7ae..62f6db3 100644
+index 9e8f7ae00..62f6db39d 100644
 --- a/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
 +++ b/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
 @@ -1,8 +1,9 @@
@@ -2336,7 +2336,7 @@ index 9e8f7ae..62f6db3 100644
  +++ b/codex-rs/http-client/src/transport_tests.rs
  @@ -1,12 +1,21 @@
 diff --git a/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch b/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
-index 09cb623..775c60f 100644
+index 09cb62308..775c60f7b 100644
 --- a/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
 +++ b/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
 @@ -1,16 +1,17 @@
@@ -2370,7 +2370,7 @@ index 09cb623..775c60f 100644
  +++ b/codex-rs/websocket-client/src/lib.rs
  @@ -122,7 +122,7 @@ impl WebSocketConnector {
 diff --git a/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch b/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
-index 39e56f0..a4d0aeb 100644
+index 39e56f075..a4d0aeb50 100644
 --- a/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
 +++ b/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
 @@ -1,15 +1,16 @@
@@ -2403,7 +2403,7 @@ index 39e56f0..a4d0aeb 100644
  +++ b/codex-rs/core/src/responses_metadata.rs
  @@ -63,7 +63,11 @@ pub(crate) const WORKSPACES_KEY: &str = "workspaces";
 diff --git a/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch b/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
-index 7ad97ca..16d749c 100644
+index 7ad97caad..16d749c79 100644
 --- a/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
 +++ b/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
 @@ -1,8 +1,9 @@
@@ -2446,7 +2446,7 @@ index 7ad97ca..16d749c 100644
  +++ b/codex-rs/codex-client/tests/retry_raw_tests.rs
  @@ -0,0 +1,185 @@
 diff --git a/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch b/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
-index dd7c5af..dd52b45 100644
+index dd7c5af23..dd52b45a7 100644
 --- a/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
 +++ b/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
 @@ -1,8 +1,9 @@
@@ -2498,7 +2498,7 @@ index dd7c5af..dd52b45 100644
  +++ b/codex-rs/login/src/auth/personal_access_token.rs
  @@ -8,7 +8,8 @@ use std::fmt;
 diff --git a/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch b/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
-index 4eeff2e..93e0928 100644
+index 4eeff2eb8..93e09280a 100644
 --- a/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
 +++ b/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
 @@ -1,8 +1,9 @@
@@ -2559,7 +2559,7 @@ index 4eeff2e..93e0928 100644
  +++ b/codex-rs/scripts/check-platform-archives.sh
  @@ -0,0 +1,141 @@
 diff --git a/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch b/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
-index c2d4cf0..b4e1087 100644
+index c2d4cf04d..b4e1087ee 100644
 --- a/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
 +++ b/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
 @@ -1,9 +1,10 @@
@@ -2612,7 +2612,7 @@ index c2d4cf0..b4e1087 100644
  +++ b/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs
  @@ -11,7 +11,8 @@
 diff --git a/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch b/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
-index 7d68f43..bedf5bd 100644
+index 7d68f43f9..bedf5bd9e 100644
 --- a/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
 +++ b/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
 @@ -1,13 +1,15 @@
@@ -2661,7 +2661,7 @@ index 7d68f43..bedf5bd 100644
  +++ b/codex-rs/codex-transportd/tests/default_operation_deadline.rs
  @@ -0,0 +1,160 @@
 diff --git a/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch b/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
-index dd605cf..d832d87 100644
+index dd605cf82..d832d87ba 100644
 --- a/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
 +++ b/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
 @@ -1,16 +1,17 @@
@@ -2695,7 +2695,7 @@ index dd605cf..d832d87 100644
  +++ b/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json
  @@ -1,6 +1,6 @@
 diff --git a/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch b/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
-index 0717183..3180d84 100644
+index 0717183d6..3180d842e 100644
 --- a/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
 +++ b/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
 @@ -1,9 +1,10 @@
@@ -2730,7 +2730,7 @@ index 0717183..3180d84 100644
  +++ b/codex-rs/codex-transportd/src/server/websocket_tests.rs
  @@ -0,0 +1,16 @@
 diff --git a/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch b/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
-index dc5756e..328277c 100644
+index dc5756e23..328277c47 100644
 --- a/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
 +++ b/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
 @@ -1,15 +1,16 @@
@@ -2754,7 +2754,7 @@ index dc5756e..328277c 100644
  +++ b/codex-rs/codex-transportd/src/transport/client_pool.rs
  @@ -1,8 +1,10 @@
 diff --git a/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch b/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
-index 906fe39..5f17ec0 100644
+index 906fe39c6..5f17ec004 100644
 --- a/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
 +++ b/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
 @@ -1,16 +1,17 @@
@@ -2788,7 +2788,7 @@ index 906fe39..5f17ec0 100644
  +++ b/codex-rs/http-client/src/transport_tests.rs
  @@ -14,11 +14,13 @@ use std::sync::atomic::Ordering;
 diff --git a/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch b/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
-index 2a7ab62..5227b46 100644
+index 2a7ab6294..5227b46c9 100644
 --- a/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 +++ b/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 @@ -1,9 +1,10 @@
@@ -2832,7 +2832,7 @@ index 2a7ab62..5227b46 100644
  +++ b/codex-rs/codex-transportd/tests/uds_connection_limits.rs
  @@ -0,0 +1,77 @@
 diff --git a/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch b/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
-index 8bd9b35..05ff9be 100644
+index 8bd9b35c0..05ff9be04 100644
 --- a/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 +++ b/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 @@ -1,15 +1,16 @@
@@ -2856,7 +2856,7 @@ index 8bd9b35..05ff9be 100644
  +++ b/codex-rs/codex-transportd/src/contract/mod.rs
  @@ -48,7 +48,7 @@ pub fn filter_upstream_headers(headers: &http::HeaderMap) -> http::HeaderMap {
 diff --git a/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch b/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
-index 1f06aa8..2078463 100644
+index 1f06aa885..207846363 100644
 --- a/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 +++ b/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 @@ -1,7 +1,7 @@
@@ -3150,7 +3150,7 @@ index 1f06aa8..2078463 100644
  @@ -1,12 +0,0 @@
 diff --git a/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch b/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
 new file mode 100644
-index 0000000..499ae9b
+index 000000000..499ae9beb
 --- /dev/null
 +++ b/patches/transportd/full/0018-docs-transportd-bind-the-rust-v0.159.0-replay-export.patch
 @@ -0,0 +1,580363 @@
@@ -583519,7 +583519,7 @@ index 0000000..499ae9b
 ++post_source_allow: deploy/build-sidecar.sh docs/REPLAY0905_SQUASH_MAP.md
 diff --git a/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch b/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
 new file mode 100644
-index 0000000..f99f14d
+index 000000000..f99f14d9f
 --- /dev/null
 +++ b/patches/transportd/full/0019-feat-transportd-carry-whitelisted-official-headers-i.patch
 @@ -0,0 +1,413 @@
@@ -583938,7 +583938,7 @@ index 0000000..f99f14d
 + 
 diff --git a/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch b/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
 new file mode 100644
-index 0000000..f9c643d
+index 000000000..f9c643de2
 --- /dev/null
 +++ b/patches/transportd/full/0020-fix-transportd-align-carried-header-whitelist-with-t.patch
 @@ -0,0 +1,109 @@
@@ -584053,7 +584053,7 @@ index 0000000..f9c643d
 +     #[test]
 diff --git a/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch b/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
 new file mode 100644
-index 0000000..ad3c9c3
+index 000000000..ad3c9c3ab
 --- /dev/null
 +++ b/patches/transportd/full/0021-fix-transportd-carry-x-client-request-id-so-R-CTD-ma.patch
 @@ -0,0 +1,86 @@
@@ -584145,7 +584145,7 @@ index 0000000..ad3c9c3
 +     #[test]
 diff --git a/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch b/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
 new file mode 100644
-index 0000000..e4a78ee
+index 000000000..e4a78ee4b
 --- /dev/null
 +++ b/patches/transportd/full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
 @@ -0,0 +1,1446 @@
@@ -585597,7 +585597,7 @@ index 0000000..e4a78ee
 +  "assert_cmd",
 diff --git a/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch b/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 new file mode 100644
-index 0000000..ed3f8d9
+index 000000000..ed3f8d909
 --- /dev/null
 +++ b/patches/transportd/full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 @@ -0,0 +1,265 @@
@@ -585867,7 +585867,7 @@ index 0000000..ed3f8d9
 + 
 + > 2026-09-06。本分支 `replay0905` 是 **review 视图**：把 codex transportd 的 133 个
 diff --git a/patches/transportd/modified-paths.txt b/patches/transportd/modified-paths.txt
-index 459507f..5fd8b0a 100644
+index 459507fc2..5fd8b0a22 100644
 --- a/patches/transportd/modified-paths.txt
 +++ b/patches/transportd/modified-paths.txt
 @@ -1,9 +1,9 @@
@@ -585919,7 +585919,7 @@ index 459507f..5fd8b0a 100644
  patches/transportd/tools/materialize-release-artifact.sh
  patches/transportd/tools/release-evidence-gate.sh
 diff --git a/patches/transportd/series.yaml b/patches/transportd/series.yaml
-index c82b1e4..49cc361 100644
+index c82b1e410..49cc36105 100644
 --- a/patches/transportd/series.yaml
 +++ b/patches/transportd/series.yaml
 @@ -1,4 +1,4 @@
@@ -585971,7 +585971,7 @@ index c82b1e4..49cc361 100644
 +  - full/0022-replay0905-v0159.2-normalize-Cargo.lock-local-versio.patch
 +  - full/0023-replay0905-v0159.2-re-pin-upstream-identity-to-rust-.patch
 diff --git a/replay/manifest.yaml b/replay/manifest.yaml
-index 5766b8e..5ae190d 100644
+index 5766b8edf..5ae190de7 100644
 --- a/replay/manifest.yaml
 +++ b/replay/manifest.yaml
 @@ -1,68 +1,84 @@
@@ -586105,3 +586105,6 @@ index 5766b8e..5ae190d 100644
 -# post_source_allow：review-close-out 的文档/守门注释修复（deploy/build-sidecar.sh、docs/REPLAY0905_SQUASH_MAP.md）；不在 replay/gate.sh 通用白名单内，且产品提交已被外部钉死（不可重开产品链）故显式声明；二者均为纯注释/文档改动，对构建出的 binary 行为惰性。
 -post_source_allow: deploy/build-sidecar.sh docs/REPLAY0905_SQUASH_MAP.md
 +# 本线由 rust-v0.159.0 线整线重放而来；除证据路径外不存在 post-source 例外。
+-- 
+2.48.1
+

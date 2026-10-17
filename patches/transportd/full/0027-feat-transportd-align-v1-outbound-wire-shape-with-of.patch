@@ -1,7 +1,7 @@
-From eb834b950b5557b83219ff578f22f491e37d2876 Mon Sep 17 00:00:00 2001
+From 9fb7c60f2915c319a6462f02f73b0f927ff53d3e Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 20:40:20 +0800
-Subject: [PATCH 27/34] feat(transportd): align v1 outbound wire shape with
+Subject: [PATCH 27/37] feat(transportd): align v1 outbound wire shape with
  official 0.159.2
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -45,7 +45,7 @@ cargo test -p codex-transportd --lib 183 passed（基线 174，+9 新测试）�
  7 files changed, 886 insertions(+), 18 deletions(-)
 
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index 2b8d88d..c5db2b9 100644
+index 2b8d88d53..c5db2b91b 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
 @@ -4768,6 +4768,7 @@ dependencies = [
@@ -57,7 +57,7 @@ index 2b8d88d..c5db2b9 100644
  
  [[package]]
 diff --git a/codex-rs/codex-transportd/Cargo.toml b/codex-rs/codex-transportd/Cargo.toml
-index 1e053ca..ec572f2 100644
+index 1e053ca70..ec572f28a 100644
 --- a/codex-rs/codex-transportd/Cargo.toml
 +++ b/codex-rs/codex-transportd/Cargo.toml
 @@ -54,6 +54,8 @@ url = { workspace = true }
@@ -70,7 +70,7 @@ index 1e053ca..ec572f2 100644
  [build-dependencies]
  sha2 = "0.10"
 diff --git a/codex-rs/codex-transportd/src/transport/metadata.rs b/codex-rs/codex-transportd/src/transport/metadata.rs
-index e0c9a6b..406bab2 100644
+index e0c9a6bf2..406bab294 100644
 --- a/codex-rs/codex-transportd/src/transport/metadata.rs
 +++ b/codex-rs/codex-transportd/src/transport/metadata.rs
 @@ -239,6 +239,72 @@ pub fn inject_carried_turn_metadata(
@@ -250,7 +250,7 @@ index e0c9a6b..406bab2 100644
  
  #[cfg(test)]
 diff --git a/codex-rs/codex-transportd/src/transport/official_adapter.rs b/codex-rs/codex-transportd/src/transport/official_adapter.rs
-index cf84983..2442a4a 100644
+index cf849838b..2442a4aeb 100644
 --- a/codex-rs/codex-transportd/src/transport/official_adapter.rs
 +++ b/codex-rs/codex-transportd/src/transport/official_adapter.rs
 @@ -22,6 +22,8 @@ use codex_http_client::build_reqwest_client_for_explicit_route;
@@ -497,7 +497,7 @@ index cf84983..2442a4a 100644
      fn version_header_comes_from_package_version() {
          let headers = official_version_header();
 diff --git a/codex-rs/codex-transportd/src/transport/responses.rs b/codex-rs/codex-transportd/src/transport/responses.rs
-index 6c7f77d..1b050c2 100644
+index 6c7f77dd3..1b050c2c9 100644
 --- a/codex-rs/codex-transportd/src/transport/responses.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses.rs
 @@ -3,6 +3,8 @@
@@ -825,7 +825,7 @@ index 6c7f77d..1b050c2 100644
  
      #[test]
 diff --git a/codex-rs/codex-transportd/src/transport/responses_v3.rs b/codex-rs/codex-transportd/src/transport/responses_v3.rs
-index c0fd362..b4160ae 100644
+index c0fd3625c..b4160ae3c 100644
 --- a/codex-rs/codex-transportd/src/transport/responses_v3.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses_v3.rs
 @@ -8,7 +8,7 @@
@@ -838,7 +838,7 @@ index c0fd362..b4160ae 100644
  //! ★ 边界处理（认证注入 / 超时 / 重试 / SSE 转发 / 审计）全部保留，且由
  //! 与 v1 **同一段**代码承担：认证注入在
 diff --git a/codex-rs/codex-transportd/tests/capture_upstream_contract.rs b/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
-index 6c5bc4b..8c725ed 100644
+index 6c5bc4b54..8c725ed61 100644
 --- a/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 +++ b/codex-rs/codex-transportd/tests/capture_upstream_contract.rs
 @@ -1,6 +1,11 @@
@@ -1118,3 +1118,6 @@ index 6c5bc4b..8c725ed 100644
 +        chunk.expect("mock stream chunk");
 +    }
 +}
+-- 
+2.48.1
+

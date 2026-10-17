@@ -1,7 +1,7 @@
-From be84c5988455dfdaf8340fa3e842365f0d57167b Mon Sep 17 00:00:00 2001
+From af5230a4a516fee27abcde276a7721667718493f Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 14:38:00 +0800
-Subject: [PATCH 21/34] fix(transportd): carry x-client-request-id so R-CTD
+Subject: [PATCH 21/37] fix(transportd): carry x-client-request-id so R-CTD
  matches the new R-Go wire
 
 The Go identity projection now derives x-client-request-id = md.SessionID (the
@@ -23,7 +23,7 @@ Verified: cargo check -p codex-transportd --all-targets; cargo test
  1 file changed, 16 insertions(+), 8 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index eca4c01..49f7e44 100644
+index eca4c01ff..49f7e4434 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -65,13 +65,16 @@ pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
@@ -84,3 +84,6 @@ index eca4c01..49f7e44 100644
      }
  
      #[test]
+-- 
+2.48.1
+

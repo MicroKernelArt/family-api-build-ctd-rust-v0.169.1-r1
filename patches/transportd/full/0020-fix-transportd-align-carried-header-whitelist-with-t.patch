@@ -1,7 +1,7 @@
-From 1a74db25a83e09c05d774c0a74336ad672bae9e6 Mon Sep 17 00:00:00 2001
+From 27cacfebabdd19994eea5573191dc72e34411ba3 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 12:15:23 +0800
-Subject: [PATCH 20/34] fix(transportd): align carried-header whitelist with
+Subject: [PATCH 20/37] fix(transportd): align carried-header whitelist with
  the R-Go parity findings
 
 R-Go vs R-CTD wire parity (tools/ctd-parity/out/report.txt) shows exactly four
@@ -26,7 +26,7 @@ codexCarriedHeaderNames.
  1 file changed, 26 insertions(+), 9 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index bdce58e..eca4c01 100644
+index bdce58e5d..eca4c01ff 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -62,10 +62,19 @@ pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
@@ -107,3 +107,6 @@ index bdce58e..eca4c01 100644
      }
  
      #[test]
+-- 
+2.48.1
+

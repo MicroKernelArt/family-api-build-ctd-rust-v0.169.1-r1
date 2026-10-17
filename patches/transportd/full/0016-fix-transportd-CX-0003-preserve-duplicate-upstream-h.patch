@@ -1,7 +1,7 @@
-From cea86526d658a25ebf1b1aa446f6b3a42211b6f6 Mon Sep 17 00:00:00 2001
+From bc2c4bab775517350ec3c2844450920c858e555f Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:15:43 +0800
-Subject: [PATCH 16/34] fix(transportd): CX-0003 preserve duplicate upstream
+Subject: [PATCH 16/37] fix(transportd): CX-0003 preserve duplicate upstream
  headers
 
 (cherry picked from commit e495d8281c625b15cba497f0fd415851f32a6efd)
@@ -10,7 +10,7 @@ Subject: [PATCH 16/34] fix(transportd): CX-0003 preserve duplicate upstream
  1 file changed, 31 insertions(+), 1 deletion(-)
 
 diff --git a/codex-rs/codex-transportd/src/contract/mod.rs b/codex-rs/codex-transportd/src/contract/mod.rs
-index a466984..a96ccf1 100644
+index a46698407..a96ccf1b5 100644
 --- a/codex-rs/codex-transportd/src/contract/mod.rs
 +++ b/codex-rs/codex-transportd/src/contract/mod.rs
 @@ -48,7 +48,7 @@ pub fn filter_upstream_headers(headers: &http::HeaderMap) -> http::HeaderMap {
@@ -57,3 +57,6 @@ index a466984..a96ccf1 100644
 +        assert!(filtered.get("x-ctd-origin").is_none());
 +    }
  }
+-- 
+2.48.1
+

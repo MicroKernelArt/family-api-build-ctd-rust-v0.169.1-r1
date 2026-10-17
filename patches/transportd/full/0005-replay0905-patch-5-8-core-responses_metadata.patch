@@ -1,7 +1,7 @@
-From 723806887dbea2dad48607dfd8d1b681369a7c39 Mon Sep 17 00:00:00 2001
+From a567d8e339ff43fc73d1cf07c4bec9cbcebd9ca9 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 05/34] replay0905-patch(5/8): core responses_metadata
+Subject: [PATCH 05/37] replay0905-patch(5/8): core responses_metadata
 
 (cherry picked from commit da3d82fbc21fb781ffe71b02896c39bc0e0054c2)
 ---
@@ -10,7 +10,7 @@ Subject: [PATCH 05/34] replay0905-patch(5/8): core responses_metadata
  2 files changed, 68 insertions(+), 3 deletions(-)
 
 diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
-index 2595ce5..7207a2a 100644
+index 08b52fc2e..ea7578d82 100644
 --- a/codex-rs/core/src/lib.rs
 +++ b/codex-rs/core/src/lib.rs
 @@ -29,6 +29,7 @@ pub use codex_protocol::turn_input::TurnInputRequest;
@@ -20,12 +20,12 @@ index 2595ce5..7207a2a 100644
 +pub use responses_metadata::RESERVED_METADATA_KEYS;
  pub use turn_metadata::detached_memory_responses_metadata;
  mod codex_thread;
- mod compact_model_fallback;
+ mod turn_extension_data;
 diff --git a/codex-rs/core/src/responses_metadata.rs b/codex-rs/core/src/responses_metadata.rs
-index bfdeb3b..7053898 100644
+index bcc2f9e94..337c23008 100644
 --- a/codex-rs/core/src/responses_metadata.rs
 +++ b/codex-rs/core/src/responses_metadata.rs
-@@ -63,7 +63,11 @@ pub(crate) const WORKSPACES_KEY: &str = "workspaces";
+@@ -65,7 +65,11 @@ pub(crate) const WORKSPACES_KEY: &str = "workspaces";
  
  // App-server clients can specify additional metadata in the `responsesapi_client_metadata` param
  // when submitting a turn, but they must not override fields owned by core.
@@ -38,7 +38,7 @@ index bfdeb3b..7053898 100644
      "guardian_credits_requested",
      MCP_ATTRIBUTION_CLIENT_METADATA_KEY,
      INSTALLATION_ID_KEY,
-@@ -267,6 +271,23 @@ pub struct CodexResponsesMetadata {
+@@ -271,6 +275,23 @@ pub struct CodexResponsesMetadata {
      pub(crate) extra: BTreeMap<String, String>,
  }
  
@@ -62,7 +62,7 @@ index bfdeb3b..7053898 100644
  impl CodexResponsesMetadata {
      pub(crate) fn new(
          installation_id: String,
-@@ -310,6 +331,49 @@ impl CodexResponsesMetadata {
+@@ -315,6 +336,49 @@ impl CodexResponsesMetadata {
          }
      }
  
@@ -112,7 +112,7 @@ index bfdeb3b..7053898 100644
      pub(crate) fn has_turn_metadata(&self) -> bool {
          self.request_kind.is_some()
      }
-@@ -322,7 +386,7 @@ impl CodexResponsesMetadata {
+@@ -327,7 +391,7 @@ impl CodexResponsesMetadata {
          serde_json::to_value(self.turn_metadata_payload()).ok()
      }
  
@@ -121,7 +121,7 @@ index bfdeb3b..7053898 100644
          let mut client_metadata = HashMap::from([
              (
                  X_CODEX_INSTALLATION_ID_HEADER.to_string(),
-@@ -374,7 +438,7 @@ impl CodexResponsesMetadata {
+@@ -379,7 +443,7 @@ impl CodexResponsesMetadata {
          client_metadata
      }
  
@@ -130,3 +130,6 @@ index bfdeb3b..7053898 100644
          let mut headers = ApiHeaderMap::new();
          insert_header(&mut headers, X_CODEX_WINDOW_ID_HEADER, &self.window_id);
          // Direct x-codex-turn-metadata is compatibility output. Keep the unbounded tool inventory
+-- 
+2.48.1
+

@@ -1,7 +1,7 @@
-From 4dff159d1467a062d6686b79cab8b0807eb101b0 Mon Sep 17 00:00:00 2001
+From 6d4480a18cdb14c0eb30ad4fd7d31743a68ef681 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:12:35 +0800
-Subject: [PATCH 15/34] fix(transportd): CX-0002 bound pre-admission UDS
+Subject: [PATCH 15/37] fix(transportd): CX-0002 bound pre-admission UDS
  connections
 
 (cherry picked from commit f205843251749b9f476a182fab6eb6900491de7f)
@@ -13,7 +13,7 @@ Subject: [PATCH 15/34] fix(transportd): CX-0002 bound pre-admission UDS
  create mode 100644 codex-rs/codex-transportd/tests/uds_connection_limits.rs
 
 diff --git a/codex-rs/codex-transportd/src/limits.rs b/codex-rs/codex-transportd/src/limits.rs
-index 3bcad61..70e25ad 100644
+index 3bcad6156..70e25adfb 100644
 --- a/codex-rs/codex-transportd/src/limits.rs
 +++ b/codex-rs/codex-transportd/src/limits.rs
 @@ -5,6 +5,9 @@
@@ -35,7 +35,7 @@ index 3bcad61..70e25ad 100644
          const _: () = assert!(MAX_BODY_BYTES > 0);
          const _: () = assert!(MAX_HEADER_BYTES > 0);
 diff --git a/codex-rs/codex-transportd/src/server/mod.rs b/codex-rs/codex-transportd/src/server/mod.rs
-index a5e5bcc..1e3c42a 100644
+index a5e5bcc87..1e3c42ab5 100644
 --- a/codex-rs/codex-transportd/src/server/mod.rs
 +++ b/codex-rs/codex-transportd/src/server/mod.rs
 @@ -115,17 +115,25 @@ pub async fn serve(config: Config) -> Result<(), String> {
@@ -66,7 +66,7 @@ index a5e5bcc..1e3c42a 100644
              // upgrade 支持（WS 依赖）：serve_connection_with_upgrades 在 101
 diff --git a/codex-rs/codex-transportd/tests/uds_connection_limits.rs b/codex-rs/codex-transportd/tests/uds_connection_limits.rs
 new file mode 100644
-index 0000000..ed8d9a2
+index 000000000..ed8d9a202
 --- /dev/null
 +++ b/codex-rs/codex-transportd/tests/uds_connection_limits.rs
 @@ -0,0 +1,77 @@
@@ -147,3 +147,6 @@ index 0000000..ed8d9a2
 +
 +    server.abort();
 +}
+-- 
+2.48.1
+

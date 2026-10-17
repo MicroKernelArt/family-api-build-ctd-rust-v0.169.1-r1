@@ -1,7 +1,7 @@
-From 5ab994bd792b3182374640a099d1def90368ce6e Mon Sep 17 00:00:00 2001
+From fe08fb9996e8bf01b82b9b38a2c3deb80677f38f Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 08/34] replay0905-patch(8/8): ci workflows + platform archives
+Subject: [PATCH 08/37] replay0905-patch(8/8): ci workflows + platform archives
 
 (cherry picked from commit 148b34118050f2e2135b610ee3031612386cc171)
 ---
@@ -17,7 +17,7 @@ Subject: [PATCH 08/34] replay0905-patch(8/8): ci workflows + platform archives
  create mode 100755 codex-rs/scripts/check-platform-archives.sh
 
 diff --git a/.github/workflows/rust-ci-full-nextest-platform.yml b/.github/workflows/rust-ci-full-nextest-platform.yml
-index 4745352..2f3624e 100644
+index 474535267..2f3624ea7 100644
 --- a/.github/workflows/rust-ci-full-nextest-platform.yml
 +++ b/.github/workflows/rust-ci-full-nextest-platform.yml
 @@ -171,9 +171,18 @@ jobs:
@@ -41,7 +41,7 @@ index 4745352..2f3624e 100644
  
 diff --git a/.github/workflows/transportd-release-gates.yml b/.github/workflows/transportd-release-gates.yml
 new file mode 100644
-index 0000000..61410e4
+index 000000000..61410e4b6
 --- /dev/null
 +++ b/.github/workflows/transportd-release-gates.yml
 @@ -0,0 +1,62 @@
@@ -109,7 +109,7 @@ index 0000000..61410e4
 +        run: bash patches/transportd/tools/sbom-gate.sh
 diff --git a/.github/workflows/transportd.yml b/.github/workflows/transportd.yml
 new file mode 100644
-index 0000000..963e69c
+index 000000000..963e69c99
 --- /dev/null
 +++ b/.github/workflows/transportd.yml
 @@ -0,0 +1,41 @@
@@ -156,7 +156,7 @@ index 0000000..963e69c
 +            build-proof-digest.txt
 diff --git a/.github/workflows/worker-ci.yml b/.github/workflows/worker-ci.yml
 new file mode 100644
-index 0000000..6dd0644
+index 000000000..6dd064487
 --- /dev/null
 +++ b/.github/workflows/worker-ci.yml
 @@ -0,0 +1,173 @@
@@ -335,7 +335,7 @@ index 0000000..6dd0644
 +          PY
 diff --git a/codex-rs/scripts/check-platform-archives.sh b/codex-rs/scripts/check-platform-archives.sh
 new file mode 100755
-index 0000000..aeaf3cf
+index 000000000..aeaf3cfc9
 --- /dev/null
 +++ b/codex-rs/scripts/check-platform-archives.sh
 @@ -0,0 +1,141 @@
@@ -480,3 +480,6 @@ index 0000000..aeaf3cf
 +fi
 +
 +echo "PASS: worker archive identity policy (${RUNNER_OS:-${OSTYPE:-unknown}})"
+-- 
+2.48.1
+

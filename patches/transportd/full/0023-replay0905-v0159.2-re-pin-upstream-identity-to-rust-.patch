@@ -1,7 +1,7 @@
-From e517cf8d50731482d2166b2d59a035ad6a8908e2 Mon Sep 17 00:00:00 2001
+From 34cc8d25b44384e8c034010cd3611b34657f0ca1 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:18:16 +0800
-Subject: [PATCH 23/34] replay0905-v0159.2: re-pin upstream identity to
+Subject: [PATCH 23/37] replay0905-v0159.2: re-pin upstream identity to
  rust-v0.159.2
 
 Baseline identity bump (UPSTREAM_UPGRADE.md checklist item 1) so the
@@ -38,7 +38,7 @@ must move to v0.159.2 with it.
  10 files changed, 42 insertions(+), 35 deletions(-)
 
 diff --git a/SBOM.md b/SBOM.md
-index 6c6c9f2..6b72b99 100644
+index 6c6c9f2a4..6b72b9967 100644
 --- a/SBOM.md
 +++ b/SBOM.md
 @@ -5,9 +5,9 @@
@@ -55,7 +55,7 @@ index 6c6c9f2..6b72b99 100644
  | fork commit | `（构建时由 build.rs 注入，见 /info fork_commit）`（构建时自动注入，/info fork_commit 一致） | git + build.rs |
  | fork Cargo.lock SHA-256 | `（构建时由 build.rs 计算，见 /info fork_cargo_lock_sha256）`（构建时自动计算，/info fork_cargo_lock_sha256 一致） | build.rs sha2 |
 diff --git a/UPSTREAM_BASE.md b/UPSTREAM_BASE.md
-index d10d153..7d4d360 100644
+index d10d153c9..7d4d36070 100644
 --- a/UPSTREAM_BASE.md
 +++ b/UPSTREAM_BASE.md
 @@ -1,27 +1,34 @@
@@ -104,7 +104,7 @@ index d10d153..7d4d360 100644
  
  Changing any base identity requires regenerating the complete patch series and
 diff --git a/WIRE_COMPATIBILITY.md b/WIRE_COMPATIBILITY.md
-index f4e3820..986ca59 100644
+index f4e382088..986ca59b6 100644
 --- a/WIRE_COMPATIBILITY.md
 +++ b/WIRE_COMPATIBILITY.md
 @@ -1,19 +1,19 @@
@@ -150,7 +150,7 @@ index f4e3820..986ca59 100644
  # 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
  wire_status: unverified
 diff --git a/codex-rs/codex-transportd/BUILD_PROOF.md b/codex-rs/codex-transportd/BUILD_PROOF.md
-index eb2d230..3654ced 100644
+index eb2d230a2..3654ced50 100644
 --- a/codex-rs/codex-transportd/BUILD_PROOF.md
 +++ b/codex-rs/codex-transportd/BUILD_PROOF.md
 @@ -3,10 +3,10 @@
@@ -168,7 +168,7 @@ index eb2d230..3654ced 100644
  - base image（production/reference 相同 digest，Q-02 冻结）：
    `debian:trixie-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258`
 diff --git a/codex-rs/codex-transportd/Cargo.toml b/codex-rs/codex-transportd/Cargo.toml
-index fdc9c98..1e053ca 100644
+index fdc9c9833..1e053ca70 100644
 --- a/codex-rs/codex-transportd/Cargo.toml
 +++ b/codex-rs/codex-transportd/Cargo.toml
 @@ -5,7 +5,7 @@ rust-version = "1.89"
@@ -181,7 +181,7 @@ index fdc9c98..1e053ca 100644
  
  [features]
 diff --git a/codex-rs/codex-transportd/Dockerfile b/codex-rs/codex-transportd/Dockerfile
-index 04eaa19..a73b382 100644
+index 04eaa1930..a73b382b2 100644
 --- a/codex-rs/codex-transportd/Dockerfile
 +++ b/codex-rs/codex-transportd/Dockerfile
 @@ -19,7 +19,7 @@ WORKDIR /src/codex-rs
@@ -194,7 +194,7 @@ index 04eaa19..a73b382 100644
  RUN --mount=type=bind,source=.,target=/src,readonly \
      --mount=type=cache,target=/src/codex-rs/target \
 diff --git a/codex-rs/codex-transportd/src/build_info.rs b/codex-rs/codex-transportd/src/build_info.rs
-index e4637d8..6d2cedb 100644
+index e4637d8ba..6d2cedbe6 100644
 --- a/codex-rs/codex-transportd/src/build_info.rs
 +++ b/codex-rs/codex-transportd/src/build_info.rs
 @@ -8,20 +8,20 @@
@@ -225,7 +225,7 @@ index e4637d8..6d2cedb 100644
  /// Rust toolchain（`codex-rs/rust-toolchain.toml`）。
  pub const TOOLCHAIN: &str = "1.95.0";
 diff --git a/codex-rs/codex-transportd/src/main.rs b/codex-rs/codex-transportd/src/main.rs
-index b357021..bbf505a 100644
+index b357021fb..bbf505a09 100644
 --- a/codex-rs/codex-transportd/src/main.rs
 +++ b/codex-rs/codex-transportd/src/main.rs
 @@ -1,6 +1,6 @@
@@ -237,7 +237,7 @@ index b357021..bbf505a 100644
  use std::process::ExitCode;
  
 diff --git a/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json b/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json
-index 47d469c..38f40a6 100644
+index 47d469cae..38f40a67c 100644
 --- a/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json
 +++ b/codex-rs/codex-transportd/tests/fixtures/operations_snapshot.golden.json
 @@ -1,6 +1,6 @@
@@ -249,7 +249,7 @@ index 47d469c..38f40a6 100644
    "operations": [
      {
 diff --git a/docs/REPLAY0905_SQUASH_MAP.md b/docs/REPLAY0905_SQUASH_MAP.md
-index 4946a3f..11b6b2d 100644
+index 4946a3fd0..11b6b2df7 100644
 --- a/docs/REPLAY0905_SQUASH_MAP.md
 +++ b/docs/REPLAY0905_SQUASH_MAP.md
 @@ -2,8 +2,8 @@
@@ -263,3 +263,6 @@ index 4946a3f..11b6b2d 100644
  > `replay/manifest.yaml` 与 `PATCHES.md` 为准，本文件仅保留作逐 patch 溯源。
  
  > 2026-09-06。本分支 `replay0905` 是 **review 视图**：把 codex transportd 的 133 个
+-- 
+2.48.1
+

@@ -1,7 +1,7 @@
-From 21e22302e9e7da946bf9d4cd5d85cc7613712787 Mon Sep 17 00:00:00 2001
+From 7b5baabbe958dfd3f7565418f8d807ae1764b33d Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Mon, 7 Sep 2026 16:50:05 +0800
-Subject: [PATCH 04/34] replay0905-patch(4/8): websocket-client
+Subject: [PATCH 04/37] replay0905-patch(4/8): websocket-client
  connect_with_route
 
 (cherry picked from commit 6581ca6873492a5cee087702792b3b3f5511bf3f)
@@ -11,7 +11,7 @@ Subject: [PATCH 04/34] replay0905-patch(4/8): websocket-client
  2 files changed, 26 insertions(+), 4 deletions(-)
 
 diff --git a/codex-rs/websocket-client/src/cookie_tests.rs b/codex-rs/websocket-client/src/cookie_tests.rs
-index 1d48eab..a212086 100644
+index 1d48eab20..a21208635 100644
 --- a/codex-rs/websocket-client/src/cookie_tests.rs
 +++ b/codex-rs/websocket-client/src/cookie_tests.rs
 @@ -179,7 +179,7 @@ async fn websocket_handshakes_share_routing_cookies_and_respect_cookie_scope() {
@@ -24,7 +24,7 @@ index 1d48eab..a212086 100644
                  WebSocketConfig::default(),
                  std::future::ready(Ok(OutboundProxyRoute::Proxy {
 diff --git a/codex-rs/websocket-client/src/lib.rs b/codex-rs/websocket-client/src/lib.rs
-index 28dbe21..d249739 100644
+index 28dbe2148..d24973912 100644
 --- a/codex-rs/websocket-client/src/lib.rs
 +++ b/codex-rs/websocket-client/src/lib.rs
 @@ -122,7 +122,7 @@ impl WebSocketConnector {
@@ -76,3 +76,6 @@ index 28dbe21..d249739 100644
          &self,
          mut request: Request,
          config: WebSocketConfig,
+-- 
+2.48.1
+

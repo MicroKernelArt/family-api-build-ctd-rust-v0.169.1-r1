@@ -1,7 +1,7 @@
-From 73d0c8194ab1a81e3291a0b6a31c5dac2d2cd508 Mon Sep 17 00:00:00 2001
+From 060ec6970b052fa10bed1db73bb586a1fed4b70f Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 19:38:10 +0800
-Subject: [PATCH 26/34] feat(transportd): implement hookpoint=v3 passthrough
+Subject: [PATCH 26/37] feat(transportd): implement hookpoint=v3 passthrough
  (Go owns the request)
 
 v3 replaces the inputs of the request-construction step only. The auth
@@ -46,7 +46,7 @@ is untouched by this change.
  create mode 100644 codex-rs/codex-transportd/src/transport/responses_v3.rs
 
 diff --git a/codex-rs/codex-api/src/endpoint/responses.rs b/codex-rs/codex-api/src/endpoint/responses.rs
-index 97b46e9..b70c373 100644
+index 97b46e9f8..b70c37395 100644
 --- a/codex-rs/codex-api/src/endpoint/responses.rs
 +++ b/codex-rs/codex-api/src/endpoint/responses.rs
 @@ -10,8 +10,10 @@ use crate::requests::headers::subagent_header;
@@ -129,7 +129,7 @@ index 97b46e9..b70c373 100644
      /// (TLS-CTD-001 FR-012, R6 preservation).
      ///
 diff --git a/codex-rs/codex-api/src/endpoint/session.rs b/codex-rs/codex-api/src/endpoint/session.rs
-index 0426013..291aa2d 100644
+index 04260134f..291aa2dfa 100644
 --- a/codex-rs/codex-api/src/endpoint/session.rs
 +++ b/codex-rs/codex-api/src/endpoint/session.rs
 @@ -242,4 +242,92 @@ impl<T: HttpTransport> EndpointSession<T> {
@@ -226,7 +226,7 @@ index 0426013..291aa2d 100644
 +    }
  }
 diff --git a/codex-rs/codex-api/tests/clients.rs b/codex-rs/codex-api/tests/clients.rs
-index d2ac117..3d5a896 100644
+index a7400d306..33174c8a4 100644
 --- a/codex-rs/codex-api/tests/clients.rs
 +++ b/codex-rs/codex-api/tests/clients.rs
 @@ -332,6 +332,97 @@ async fn responses_client_sends_extra_headers() -> Result<()> {
@@ -328,7 +328,7 @@ index d2ac117..3d5a896 100644
  async fn responses_client_stream_request_preserves_item_ids() -> Result<()> {
      let state = RecordingState::default();
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index 99a2553..ea3a4d0 100644
+index 99a2553f2..ea3a4d08b 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -101,6 +101,70 @@ pub const CARRIED_HEADER_NAMES: &[&str] = &[
@@ -731,7 +731,7 @@ index 99a2553..ea3a4d0 100644
  mod deadline_tests {
      use super::*;
 diff --git a/codex-rs/codex-transportd/src/server/mod.rs b/codex-rs/codex-transportd/src/server/mod.rs
-index 088b3ab..53ebbfb 100644
+index 088b3ab9c..53ebbfb28 100644
 --- a/codex-rs/codex-transportd/src/server/mod.rs
 +++ b/codex-rs/codex-transportd/src/server/mod.rs
 @@ -22,6 +22,7 @@ use tokio::sync::Semaphore;
@@ -809,7 +809,7 @@ index 088b3ab..53ebbfb 100644
              crate::transport::auxiliary::execute_models_raw(&state.pool, ctx).await?
          }
 diff --git a/codex-rs/codex-transportd/src/transport/mod.rs b/codex-rs/codex-transportd/src/transport/mod.rs
-index 74b02f3..1d61a22 100644
+index 74b02f333..1d61a2264 100644
 --- a/codex-rs/codex-transportd/src/transport/mod.rs
 +++ b/codex-rs/codex-transportd/src/transport/mod.rs
 @@ -12,5 +12,6 @@ pub mod metadata;
@@ -820,7 +820,7 @@ index 74b02f3..1d61a22 100644
  pub mod url_policy;
  pub mod websocket;
 diff --git a/codex-rs/codex-transportd/src/transport/official_adapter.rs b/codex-rs/codex-transportd/src/transport/official_adapter.rs
-index e3ebf39..cf84983 100644
+index e3ebf39a1..cf849838b 100644
 --- a/codex-rs/codex-transportd/src/transport/official_adapter.rs
 +++ b/codex-rs/codex-transportd/src/transport/official_adapter.rs
 @@ -79,6 +79,30 @@ pub fn chatgpt_provider() -> Provider {
@@ -914,7 +914,7 @@ index e3ebf39..cf84983 100644
          let headers = official_version_header();
 diff --git a/codex-rs/codex-transportd/src/transport/responses_v3.rs b/codex-rs/codex-transportd/src/transport/responses_v3.rs
 new file mode 100644
-index 0000000..c0fd362
+index 000000000..c0fd3625c
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/responses_v3.rs
 @@ -0,0 +1,617 @@
@@ -1535,3 +1535,6 @@ index 0000000..c0fd362
 +        }
 +    }
 +}
+-- 
+2.48.1
+

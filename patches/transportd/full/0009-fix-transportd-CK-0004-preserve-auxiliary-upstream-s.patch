@@ -1,7 +1,7 @@
-From 2104550976855d2ef0ab3599f47d4aac97b8b927 Mon Sep 17 00:00:00 2001
+From c32d9f931da6b508e604954c578b57f9b5bea746 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 00:24:43 +0800
-Subject: [PATCH 09/34] fix(transportd): CK-0004 preserve auxiliary upstream
+Subject: [PATCH 09/37] fix(transportd): CK-0004 preserve auxiliary upstream
  status
 
 (cherry picked from commit 5ecb30d92d406caf292414a1c7207ff7954f87ac)
@@ -13,7 +13,7 @@ Subject: [PATCH 09/34] fix(transportd): CK-0004 preserve auxiliary upstream
  4 files changed, 147 insertions(+), 41 deletions(-)
 
 diff --git a/codex-rs/codex-api/src/endpoint/models.rs b/codex-rs/codex-api/src/endpoint/models.rs
-index 7231569..01f6fba 100644
+index 723156981..01f6fbac5 100644
 --- a/codex-rs/codex-api/src/endpoint/models.rs
 +++ b/codex-rs/codex-api/src/endpoint/models.rs
 @@ -75,9 +75,9 @@ impl<T: HttpTransport> ModelsClient<T> {
@@ -142,7 +142,7 @@ index 7231569..01f6fba 100644
 +    }
  }
 diff --git a/codex-rs/codex-api/src/endpoint/search.rs b/codex-rs/codex-api/src/endpoint/search.rs
-index 25e3380..64a71de 100644
+index 0e8d81586..9ef83aab1 100644
 --- a/codex-rs/codex-api/src/endpoint/search.rs
 +++ b/codex-rs/codex-api/src/endpoint/search.rs
 @@ -42,9 +42,15 @@ impl<T: HttpTransport> SearchClient<T> {
@@ -164,7 +164,7 @@ index 25e3380..64a71de 100644
      }
  
 diff --git a/codex-rs/codex-transportd/src/transport/auxiliary.rs b/codex-rs/codex-transportd/src/transport/auxiliary.rs
-index c9af539..869d269 100644
+index c9af53932..869d26985 100644
 --- a/codex-rs/codex-transportd/src/transport/auxiliary.rs
 +++ b/codex-rs/codex-transportd/src/transport/auxiliary.rs
 @@ -53,12 +53,14 @@ pub async fn execute_models_raw(
@@ -202,7 +202,7 @@ index c9af539..869d269 100644
  
  /// 执行 usage/quota 原始请求（WHAM 官方路径，无官方解析 client；
 diff --git a/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs b/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs
-index 697b361..bce064d 100644
+index 697b361dd..bce064d94 100644
 --- a/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs
 +++ b/codex-rs/codex-transportd/tests/upstream_non2xx_preservation.rs
 @@ -11,7 +11,8 @@
@@ -414,3 +414,6 @@ index 697b361..bce064d 100644
           content-length: {}\r\n\r\n",
          body.len()
      );
+-- 
+2.48.1
+

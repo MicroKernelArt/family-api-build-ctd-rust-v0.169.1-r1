@@ -5,9 +5,9 @@
 | 输入 | 值 | 证据 |
 |---|---|---|
 | upstream repo | `https://github.com/openai/codex` | UPSTREAM_BASE.md |
-| upstream tag | `rust-v0.159.2` | `git ls-remote refs/tags/rust-v0.159.2^{}` |
-| upstream commit | `ff6aec96948b70d94983af2641a6b67c94faeff5` | 同上 |
-| upstream Cargo.lock SHA-256 | `4fab6fe99180e2b8f305bd4b33c1b4bd825e3fa4cdef1045be750843bd3d431e` | `shasum -a 256` |
+| upstream tag | `rust-v0.163.0` | `git ls-remote refs/tags/rust-v0.163.0^{}` |
+| upstream commit | `83086188ae0614bd882818ff1aa23f3194962012` | 同上 |
+| upstream Cargo.lock SHA-256 | `17cdd862471774ba7aef836aaf0a0a3ed76bd23e503b1fc7278c89d1f2719d03` | `shasum -a 256` |
 | fork branch | （不声明：不存在该名字的分支；实际构建 ref 见 receipt 的 review_commit） | — |
 | fork commit | `（构建时由 build.rs 注入，见 /info fork_commit）`（构建时自动注入，/info fork_commit 一致） | git + build.rs |
 | fork Cargo.lock SHA-256 | `（构建时由 build.rs 计算，见 /info fork_cargo_lock_sha256）`（构建时自动计算，/info fork_cargo_lock_sha256 一致） | build.rs sha2 |
@@ -34,9 +34,9 @@
 
 ## gate metadata（由证据提交写入；sbom-gate.sh 逐字段比对 series.yaml）
 
-sbom_source_commit: f337881f332a78e04d33761a8cb03d4ead168438
-sbom_source_tree: 6730446c734fad9c0409087634a332b596a04be4
-sbom_cargo_lock_sha256: 5c38970b607d3521c9241cd3ceb79cc32f3171e020b901437dbc364ff071e391
-sbom_module_bazel_lock_sha256: be65892b2bdb12c0867dabfcaaf7ca4ee7a9ae4915e0d0de9c99448158777d31
+sbom_source_commit: 1702d2d1b9fecdd632042991b333596f56edeeee
+sbom_source_tree: 51d9287d59e4d606f1fd290809969cd797ebaaf0
+sbom_cargo_lock_sha256: c1630d9246a9e1468c5cb51d2bf3e8bab30d1ae410e261bf0e2210552e7dcae8
+sbom_module_bazel_lock_sha256: c38d161a51f8e1ed0bfb51d8677a545229809bd268da394fe900fecb181c0f3c
 sbom_status: generated-from-locks
 sbom_artifact_status: external-receipt-required

@@ -1,7 +1,7 @@
-From d72d6fb2b990eee96b63129cb209f42aa84ed7a2 Mon Sep 17 00:00:00 2001
+From 76225cb4ee0207b8919ee897652252eab7743c0c Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 00:09:05 +0800
-Subject: [PATCH 31/34] fix(transportd): carry compact-only
+Subject: [PATCH 31/37] fix(transportd): carry compact-only
  x-codex-installation-id under hookpoint=v3
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -43,7 +43,7 @@ accept → content-type → auth → originator → user-agent）。出站 mock 
  create mode 100644 codex-rs/codex-transportd/src/transport/wire_harness.rs
 
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index ea3a4d0..ce0c4fe 100644
+index ea3a4d08b..ce0c4fe4a 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -125,8 +125,9 @@ pub const OUTBOUND_HEADERS_HEADER: &str = "x-ctd-outbound-headers";
@@ -292,7 +292,7 @@ index ea3a4d0..ce0c4fe 100644
      fn v1_ignores_the_v3_carrier_verbatim() {
          // ★ v1 逐字不变：即使（错误地）携带 v3 通道，v1 的解析结果也必须与
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index a08a9ce..66f1625 100644
+index a08a9cefc..66f16256f 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -196,8 +196,10 @@ pub async fn execute_compact_raw(
@@ -367,7 +367,7 @@ index a08a9ce..66f1625 100644
      /// zstd 帧 + `content-length` == 压缩后字节数），且头序为官方构造序
      /// （`accept` 在 `content-encoding` / `content-type` / `authorization`
 diff --git a/codex-rs/codex-transportd/src/transport/mod.rs b/codex-rs/codex-transportd/src/transport/mod.rs
-index 1d61a22..eee749f 100644
+index 1d61a2264..eee749f56 100644
 --- a/codex-rs/codex-transportd/src/transport/mod.rs
 +++ b/codex-rs/codex-transportd/src/transport/mod.rs
 @@ -15,3 +15,7 @@ pub mod responses;
@@ -379,7 +379,7 @@ index 1d61a22..eee749f 100644
 +#[cfg(test)]
 +pub(crate) mod wire_harness;
 diff --git a/codex-rs/codex-transportd/src/transport/responses_v3.rs b/codex-rs/codex-transportd/src/transport/responses_v3.rs
-index b465b06..9153261 100644
+index b465b06ec..91532615b 100644
 --- a/codex-rs/codex-transportd/src/transport/responses_v3.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses_v3.rs
 @@ -6,7 +6,7 @@
@@ -875,7 +875,7 @@ index b465b06..9153261 100644
  }
 diff --git a/codex-rs/codex-transportd/src/transport/wire_harness.rs b/codex-rs/codex-transportd/src/transport/wire_harness.rs
 new file mode 100644
-index 0000000..2adf0ab
+index 000000000..2adf0ab78
 --- /dev/null
 +++ b/codex-rs/codex-transportd/src/transport/wire_harness.rs
 @@ -0,0 +1,61 @@
@@ -940,3 +940,6 @@ index 0000000..2adf0ab
 +        .find(|(key, _)| key.trim().eq_ignore_ascii_case(name))
 +        .map(|(_, value)| value.trim())
 +}
+-- 
+2.48.1
+

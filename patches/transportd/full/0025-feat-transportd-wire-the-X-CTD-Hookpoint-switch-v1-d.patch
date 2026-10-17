@@ -1,7 +1,7 @@
-From 79de633a5926db4b561e53c0293864d4bb737ef6 Mon Sep 17 00:00:00 2001
+From fac03d05591316239a7814e6f0c4f96560861e17 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Thu, 1 Oct 2026 18:59:50 +0800
-Subject: [PATCH 25/34] feat(transportd): wire the X-CTD-Hookpoint switch (v1
+Subject: [PATCH 25/37] feat(transportd): wire the X-CTD-Hookpoint switch (v1
  default)
 
 Step-5 switch wiring only: v3 takes the same implementation path as v1 and
@@ -29,7 +29,7 @@ closed-set parse, invalid value, out-of-scope value, capability advertisement.
  6 files changed, 243 insertions(+), 8 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/build_info.rs b/codex-rs/codex-transportd/src/build_info.rs
-index 6d2cedb..c7c2317 100644
+index 6d2cedbe6..c7c231748 100644
 --- a/codex-rs/codex-transportd/src/build_info.rs
 +++ b/codex-rs/codex-transportd/src/build_info.rs
 @@ -74,4 +74,41 @@ pub const CAPABILITIES: &[&str] = &[
@@ -75,7 +75,7 @@ index 6d2cedb..c7c2317 100644
 +    }
 +}
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index 49f7e44..99a2553 100644
+index 49f7e4434..99a2553f2 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -57,6 +57,11 @@ pub const USER_ID_HEADER: &str = "x-ctd-user-id";
@@ -274,7 +274,7 @@ index 49f7e44..99a2553 100644
      fn models_operation_does_not_require_session() {
          let mut headers = base_headers();
 diff --git a/codex-rs/codex-transportd/src/contract/mod.rs b/codex-rs/codex-transportd/src/contract/mod.rs
-index a96ccf1..8041aac 100644
+index a96ccf1b5..8041aac98 100644
 --- a/codex-rs/codex-transportd/src/contract/mod.rs
 +++ b/codex-rs/codex-transportd/src/contract/mod.rs
 @@ -6,6 +6,7 @@ pub mod operation;
@@ -286,7 +286,7 @@ index a96ccf1..8041aac 100644
  pub use headers::RequestContext;
  pub use headers::RequestPurpose;
 diff --git a/codex-rs/codex-transportd/src/observability.rs b/codex-rs/codex-transportd/src/observability.rs
-index c8dbbf1..246e1b6 100644
+index c8dbbf182..246e1b6a7 100644
 --- a/codex-rs/codex-transportd/src/observability.rs
 +++ b/codex-rs/codex-transportd/src/observability.rs
 @@ -1,12 +1,13 @@
@@ -377,7 +377,7 @@ index c8dbbf1..246e1b6 100644
  
      #[test]
 diff --git a/codex-rs/codex-transportd/src/server/http.rs b/codex-rs/codex-transportd/src/server/http.rs
-index 113144f..d5516fe 100644
+index 113144f1a..d5516fe97 100644
 --- a/codex-rs/codex-transportd/src/server/http.rs
 +++ b/codex-rs/codex-transportd/src/server/http.rs
 @@ -76,6 +76,7 @@ pub(crate) async fn handle_http_operation(
@@ -405,7 +405,7 @@ index 113144f..d5516fe 100644
                  crate::observability::Outcome::LocalError,
              );
 diff --git a/codex-rs/codex-transportd/src/server/mod.rs b/codex-rs/codex-transportd/src/server/mod.rs
-index 01d8d79..088b3ab 100644
+index 01d8d797d..088b3ab9c 100644
 --- a/codex-rs/codex-transportd/src/server/mod.rs
 +++ b/codex-rs/codex-transportd/src/server/mod.rs
 @@ -291,6 +291,7 @@ pub(crate) async fn execute_operation(
@@ -446,3 +446,6 @@ index 01d8d79..088b3ab 100644
              },
              finished: false,
          };
+-- 
+2.48.1
+

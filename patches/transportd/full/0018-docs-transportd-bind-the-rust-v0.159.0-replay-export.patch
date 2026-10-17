@@ -1,7 +1,7 @@
-From 868fadfe81e69fe44527444cf1baa7aa81edab23 Mon Sep 17 00:00:00 2001
+From bb5312b05ade6c0b647cecafb83babf01a75f994 Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Tue, 29 Sep 2026 21:04:17 +0800
-Subject: [PATCH 18/34] docs(transportd): bind the rust-v0.159.0 replay export
+Subject: [PATCH 18/37] docs(transportd): bind the rust-v0.159.0 replay export
  and make every identity document self-consistent
 
 (cherry picked from commit 3af83a59bbb9cbbe6161c355ed377164ee0b7cb4)
@@ -55,7 +55,7 @@ Subject: [PATCH 18/34] docs(transportd): bind the rust-v0.159.0 replay export
  create mode 100755 patches/transportd/tools/gen-modification-surface.sh
 
 diff --git a/PATCHES.md b/PATCHES.md
-index 34cbe23..8751c0b 100644
+index 34cbe2346..8751c0bc0 100644
 --- a/PATCHES.md
 +++ b/PATCHES.md
 @@ -1,10 +1,30 @@
@@ -104,7 +104,7 @@ index 34cbe23..8751c0b 100644
  | P-010 | `codex-rs/codex-api/src/endpoint/search.rs` | 新增 `SearchClient::execute_raw` | raw response adapter（FR-011） | T-008 |
  | P-011 | `codex-rs/http-client/src/outbound_proxy.rs` + `lib.rs` | 新增 `build_reqwest_client_for_explicit_route`（Direct 强制 no_proxy；Proxy 精确 pin；失败不回退 direct） | 显式 proxy route adapter（FR-016/FR-017） | T-005 |
 diff --git a/SBOM.md b/SBOM.md
-index bc4cbce..6c6c9f2 100644
+index bc4cbce40..6c6c9f2a4 100644
 --- a/SBOM.md
 +++ b/SBOM.md
 @@ -14,8 +14,8 @@
@@ -132,7 +132,7 @@ index bc4cbce..6c6c9f2 100644
 +sbom_status: generated-from-locks
 +sbom_artifact_status: external-receipt-required
 diff --git a/WIRE_COMPATIBILITY.md b/WIRE_COMPATIBILITY.md
-index 79d1b08..f4e3820 100644
+index 79d1b08b8..f4e382088 100644
 --- a/WIRE_COMPATIBILITY.md
 +++ b/WIRE_COMPATIBILITY.md
 @@ -71,3 +71,11 @@ source commit → Cargo.lock → SBOM → image digest（/info + readiness 校
@@ -148,7 +148,7 @@ index 79d1b08..f4e3820 100644
 +# 非 release 模式下 wire-gate.sh 接受 unverified；release 模式要求 pass。
 +wire_status: unverified
 diff --git a/deploy/build-sidecar.sh b/deploy/build-sidecar.sh
-index 460968c..7bb8680 100755
+index 460968c14..7bb8680a7 100755
 --- a/deploy/build-sidecar.sh
 +++ b/deploy/build-sidecar.sh
 @@ -378,7 +378,14 @@ if failed:
@@ -168,7 +168,7 @@ index 460968c..7bb8680 100755
  docker exec "$CID" curl -fsS --unix-socket /run/ctd/sock/transport.sock http://localhost/_internal/v1/health/ready >/dev/null \
    || { echo "FAIL: health/ready"; exit 1; }
 diff --git a/docs/REPLAY0905_SQUASH_MAP.md b/docs/REPLAY0905_SQUASH_MAP.md
-index 54c3b9e..4946a3f 100644
+index 54c3b9e14..4946a3fd0 100644
 --- a/docs/REPLAY0905_SQUASH_MAP.md
 +++ b/docs/REPLAY0905_SQUASH_MAP.md
 @@ -1,5 +1,11 @@
@@ -185,7 +185,7 @@ index 54c3b9e..4946a3f 100644
  > granular HEAD 逐字节一致**（`git diff replay0905-upgrade replay0905` 为空）。
 diff --git a/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch b/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
 new file mode 100644
-index 0000000..8106188
+index 000000000..81061883d
 --- /dev/null
 +++ b/patches/transportd/full/0001-replay0905-patch-1-8-transportd-infra-ours-only.patch
 @@ -0,0 +1,574154 @@
@@ -574345,7 +574345,7 @@ index 0000000..8106188
 ++build:                    2026-08-18T08:03:20Z
 diff --git a/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch b/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
 new file mode 100644
-index 0000000..adfec1f
+index 000000000..adfec1f04
 --- /dev/null
 +++ b/patches/transportd/full/0002-replay0905-patch-2-8-codex-api-endpoint-adapters.patch
 @@ -0,0 +1,509 @@
@@ -574860,7 +574860,7 @@ index 0000000..adfec1f
 +     let response = outcome.value;
 diff --git a/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch b/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
 new file mode 100644
-index 0000000..9e8f7ae
+index 000000000..9e8f7ae00
 --- /dev/null
 +++ b/patches/transportd/full/0003-replay0905-patch-3-8-http-client-adapters.patch
 @@ -0,0 +1,332 @@
@@ -575198,7 +575198,7 @@ index 0000000..9e8f7ae
 ++    let _bytes: Bytes = Bytes::from_static(b"x");
 diff --git a/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch b/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
 new file mode 100644
-index 0000000..09cb623
+index 000000000..09cb62308
 --- /dev/null
 +++ b/patches/transportd/full/0004-replay0905-patch-4-8-websocket-client-connect_with_r.patch
 @@ -0,0 +1,77 @@
@@ -575281,7 +575281,7 @@ index 0000000..09cb623
 +         config: WebSocketConfig,
 diff --git a/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch b/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
 new file mode 100644
-index 0000000..39e56f0
+index 000000000..39e56f075
 --- /dev/null
 +++ b/patches/transportd/full/0005-replay0905-patch-5-8-core-responses_metadata.patch
 @@ -0,0 +1,131 @@
@@ -575418,7 +575418,7 @@ index 0000000..39e56f0
 +         // Direct x-codex-turn-metadata is compatibility output. Keep the unbounded tool inventory
 diff --git a/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch b/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
 new file mode 100644
-index 0000000..7ad97ca
+index 000000000..7ad97caad
 --- /dev/null
 +++ b/patches/transportd/full/0006-replay0905-patch-6-8-codex-client-retry-raw.patch
 @@ -0,0 +1,319 @@
@@ -575743,7 +575743,7 @@ index 0000000..7ad97ca
 ++}
 diff --git a/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch b/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
 new file mode 100644
-index 0000000..dd7c5af
+index 000000000..dd7c5af23
 --- /dev/null
 +++ b/patches/transportd/full/0007-replay0905-patch-7-8-login-auth.patch
 @@ -0,0 +1,75 @@
@@ -575824,7 +575824,7 @@ index 0000000..dd7c5af
 + 
 diff --git a/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch b/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
 new file mode 100644
-index 0000000..4eeff2e
+index 000000000..4eeff2eb8
 --- /dev/null
 +++ b/patches/transportd/full/0008-replay0905-patch-8-8-ci-workflows-platform-archives.patch
 @@ -0,0 +1,481 @@
@@ -576311,7 +576311,7 @@ index 0000000..4eeff2e
 ++echo "PASS: worker archive identity policy (${RUNNER_OS:-${OSTYPE:-unknown}})"
 diff --git a/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch b/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
 new file mode 100644
-index 0000000..c2d4cf0
+index 000000000..c2d4cf04d
 --- /dev/null
 +++ b/patches/transportd/full/0009-fix-transportd-CK-0004-preserve-auxiliary-upstream-s.patch
 @@ -0,0 +1,415 @@
@@ -576732,7 +576732,7 @@ index 0000000..c2d4cf0
 +     );
 diff --git a/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch b/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
 new file mode 100644
-index 0000000..7d68f43
+index 000000000..7d68f43f9
 --- /dev/null
 +++ b/patches/transportd/full/0010-fix-transportd-CK-0002-operation-specific-default-de.patch
 @@ -0,0 +1,248 @@
@@ -576986,7 +576986,7 @@ index 0000000..7d68f43
 ++}
 diff --git a/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch b/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
 new file mode 100644
-index 0000000..dd605cf
+index 000000000..dd605cf82
 --- /dev/null
 +++ b/patches/transportd/full/0011-fix-transportd-CK-0003-correct-upstream-operation-me.patch
 @@ -0,0 +1,137 @@
@@ -577129,7 +577129,7 @@ index 0000000..dd605cf
 +       "requires_session": false,
 diff --git a/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch b/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
 new file mode 100644
-index 0000000..0717183
+index 000000000..0717183d6
 --- /dev/null
 +++ b/patches/transportd/full/0012-fix-transportd-CK-0001-stop-websocket-pong-channel-s.patch
 @@ -0,0 +1,215 @@
@@ -577350,7 +577350,7 @@ index 0000000..0717183
 ++}
 diff --git a/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch b/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
 new file mode 100644
-index 0000000..dc5756e
+index 000000000..dc5756e23
 --- /dev/null
 +++ b/patches/transportd/full/0013-fix-transportd-CK-0005-document-shared-Cloudflare-co.patch
 @@ -0,0 +1,27 @@
@@ -577383,7 +577383,7 @@ index 0000000..dc5756e
 + use std::time::Instant;
 diff --git a/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch b/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
 new file mode 100644
-index 0000000..906fe39
+index 000000000..906fe39c6
 --- /dev/null
 +++ b/patches/transportd/full/0014-fix-transportd-CX-0004-honor-disabled-raw-request-lo.patch
 @@ -0,0 +1,181 @@
@@ -577570,7 +577570,7 @@ index 0000000..906fe39
 ++}
 diff --git a/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch b/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 new file mode 100644
-index 0000000..2a7ab62
+index 000000000..2a7ab6294
 --- /dev/null
 +++ b/patches/transportd/full/0015-fix-transportd-CX-0002-bound-pre-admission-UDS-conne.patch
 @@ -0,0 +1,148 @@
@@ -577724,7 +577724,7 @@ index 0000000..2a7ab62
 ++}
 diff --git a/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch b/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 new file mode 100644
-index 0000000..8bd9b35
+index 000000000..8bd9b35c0
 --- /dev/null
 +++ b/patches/transportd/full/0016-fix-transportd-CX-0003-preserve-duplicate-upstream-h.patch
 @@ -0,0 +1,58 @@
@@ -577788,7 +577788,7 @@ index 0000000..8bd9b35
 + }
 diff --git a/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch b/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 new file mode 100644
-index 0000000..1f06aa8
+index 000000000..1f06aa885
 --- /dev/null
 +++ b/patches/transportd/full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 @@ -0,0 +1,2169 @@
@@ -579963,7 +579963,7 @@ index 0000000..1f06aa8
 +-build:                    2026-08-18T08:03:20Z
 diff --git a/patches/transportd/modified-paths.txt b/patches/transportd/modified-paths.txt
 new file mode 100644
-index 0000000..459507f
+index 000000000..459507fc2
 --- /dev/null
 +++ b/patches/transportd/modified-paths.txt
 @@ -0,0 +1,212 @@
@@ -580181,7 +580181,7 @@ index 0000000..459507f
 +scripts/installation_lifecycle.sh
 diff --git a/patches/transportd/series.yaml b/patches/transportd/series.yaml
 new file mode 100644
-index 0000000..c82b1e4
+index 000000000..c82b1e410
 --- /dev/null
 +++ b/patches/transportd/series.yaml
 @@ -0,0 +1,42 @@
@@ -580229,7 +580229,7 @@ index 0000000..c82b1e4
 +  - full/0017-fix-transportd-CX-0001-release-evidence-machinery.patch
 diff --git a/patches/transportd/tools/gen-modification-surface.sh b/patches/transportd/tools/gen-modification-surface.sh
 new file mode 100755
-index 0000000..4ff9f69
+index 000000000..4ff9f69ec
 --- /dev/null
 +++ b/patches/transportd/tools/gen-modification-surface.sh
 @@ -0,0 +1,51 @@
@@ -580285,7 +580285,7 @@ index 0000000..4ff9f69
 +
 +echo "PASS: wrote $OUT ($TOTAL paths)"
 diff --git a/replay/manifest.yaml b/replay/manifest.yaml
-index a087980..5766b8e 100644
+index a0879802b..5766b8edf 100644
 --- a/replay/manifest.yaml
 +++ b/replay/manifest.yaml
 @@ -1,10 +1,68 @@
@@ -580361,3 +580361,6 @@ index a087980..5766b8e 100644
 +# 所有改动都已折进产品链，除下面显式声明的两个 close-out 路径外不存在 post-source 例外。
 +# post_source_allow：review-close-out 的文档/守门注释修复（deploy/build-sidecar.sh、docs/REPLAY0905_SQUASH_MAP.md）；不在 replay/gate.sh 通用白名单内，且产品提交已被外部钉死（不可重开产品链）故显式声明；二者均为纯注释/文档改动，对构建出的 binary 行为惰性。
 +post_source_allow: deploy/build-sidecar.sh docs/REPLAY0905_SQUASH_MAP.md
+-- 
+2.48.1
+

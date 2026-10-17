@@ -1,7 +1,7 @@
-From 45eb857ae2e7477790f5f5c5113d3d38dd2ac786 Mon Sep 17 00:00:00 2001
+From bb3d541e3cef349a6c939a27ce9276c0106b2f2f Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Wed, 9 Sep 2026 01:04:40 +0800
-Subject: [PATCH 14/34] fix(transportd): CX-0004 honor disabled raw request
+Subject: [PATCH 14/37] fix(transportd): CX-0004 honor disabled raw request
  logging
 
 (cherry picked from commit bc5f49918f60a2e7e2ad06bf3e4d20439004ae3a)
@@ -11,7 +11,7 @@ Subject: [PATCH 14/34] fix(transportd): CX-0004 honor disabled raw request
  2 files changed, 70 insertions(+), 27 deletions(-)
 
 diff --git a/codex-rs/http-client/src/transport.rs b/codex-rs/http-client/src/transport.rs
-index 36cd864..62d80f1 100644
+index 36cd86445..62d80f141 100644
 --- a/codex-rs/http-client/src/transport.rs
 +++ b/codex-rs/http-client/src/transport.rs
 @@ -285,14 +285,7 @@ impl HttpTransport for ReqwestTransport {
@@ -47,7 +47,7 @@ index 36cd864..62d80f1 100644
          let resp = self.send(req).await?;
          let status = resp.status();
 diff --git a/codex-rs/http-client/src/transport_tests.rs b/codex-rs/http-client/src/transport_tests.rs
-index 6d4df28..0574822 100644
+index 6d4df28e1..057482219 100644
 --- a/codex-rs/http-client/src/transport_tests.rs
 +++ b/codex-rs/http-client/src/transport_tests.rs
 @@ -14,11 +14,13 @@ use std::sync::atomic::Ordering;
@@ -180,3 +180,6 @@ index 6d4df28..0574822 100644
      assert_eq!(headers.get("x-probe").unwrap(), "v");
      let _bytes: Bytes = Bytes::from_static(b"x");
 +}
+-- 
+2.48.1
+

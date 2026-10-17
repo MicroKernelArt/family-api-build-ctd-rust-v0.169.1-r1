@@ -1,7 +1,7 @@
-From f337881f332a78e04d33761a8cb03d4ead168438 Mon Sep 17 00:00:00 2001
+From 735928903cf10b8d3207438ebac0523aee2aea5e Mon Sep 17 00:00:00 2001
 From: Shanks <shanks@book>
 Date: Fri, 2 Oct 2026 16:13:39 +0800
-Subject: [PATCH 34/34] fix(transportd): consume the carried account
+Subject: [PATCH 34/37] fix(transportd): consume the carried account
  installation-id as projection identity
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -55,7 +55,7 @@ sidecar——本提交是闭合该向量的 **Rust 半步**。
  5 files changed, 263 insertions(+), 10 deletions(-)
 
 diff --git a/codex-rs/codex-transportd/src/contract/headers.rs b/codex-rs/codex-transportd/src/contract/headers.rs
-index ce0c4fe..e101105 100644
+index ce0c4fe4a..e1011050c 100644
 --- a/codex-rs/codex-transportd/src/contract/headers.rs
 +++ b/codex-rs/codex-transportd/src/contract/headers.rs
 @@ -63,6 +63,11 @@ pub const CARRIED_HEADERS_HEADER: &str = "x-ctd-carried-headers";
@@ -188,7 +188,7 @@ index ce0c4fe..e101105 100644
                  V3_HEADER_ALLOWLIST.contains(name),
                  "v1 承载的 {name} 必须仍被 v3 承载"
 diff --git a/codex-rs/codex-transportd/src/transport/compact.rs b/codex-rs/codex-transportd/src/transport/compact.rs
-index 66f1625..6c2bc9a 100644
+index 66f16256f..6c2bc9a59 100644
 --- a/codex-rs/codex-transportd/src/transport/compact.rs
 +++ b/codex-rs/codex-transportd/src/transport/compact.rs
 @@ -107,6 +107,10 @@ pub async fn execute_compact_raw(
@@ -258,7 +258,7 @@ index 66f1625..6c2bc9a 100644
      fn compact_timeout_is_bounded() {
          assert_eq!(COMPACT_REQUEST_TIMEOUT, Duration::from_secs(1200));
 diff --git a/codex-rs/codex-transportd/src/transport/metadata.rs b/codex-rs/codex-transportd/src/transport/metadata.rs
-index cf866d6..d43b3e8 100644
+index cf866d618..d43b3e853 100644
 --- a/codex-rs/codex-transportd/src/transport/metadata.rs
 +++ b/codex-rs/codex-transportd/src/transport/metadata.rs
 @@ -339,7 +339,39 @@ pub fn rewrite_prompt_cache_key(obj: &mut Map<String, Value>, outbound_session_i
@@ -373,7 +373,7 @@ index cf866d6..d43b3e8 100644
      #[test]
      fn reserved_root_key_fails_closed() {
 diff --git a/codex-rs/codex-transportd/src/transport/responses.rs b/codex-rs/codex-transportd/src/transport/responses.rs
-index b249503..aafc670 100644
+index b24950361..aafc67026 100644
 --- a/codex-rs/codex-transportd/src/transport/responses.rs
 +++ b/codex-rs/codex-transportd/src/transport/responses.rs
 @@ -101,6 +101,15 @@ pub const V1_TRAILING_HEADER_ORDER: &[&str] = &["originator", "user-agent"];
@@ -459,7 +459,7 @@ index b249503..aafc670 100644
      fn carried_values_override_local_projection() {
          // 承载通道是 FR-004 的唯一 header 通道：同名键覆盖本地派生值。
 diff --git a/codex-rs/codex-transportd/src/transport/websocket.rs b/codex-rs/codex-transportd/src/transport/websocket.rs
-index c68c639..ff12e85 100644
+index c68c63919..ff12e85d7 100644
 --- a/codex-rs/codex-transportd/src/transport/websocket.rs
 +++ b/codex-rs/codex-transportd/src/transport/websocket.rs
 @@ -82,7 +82,10 @@ pub async fn connect_responses_ws_v2(
@@ -474,3 +474,6 @@ index c68c639..ff12e85 100644
  
      let handle = official_adapter::resolve_route_handle(ctx.proxy_kind, ctx.proxy_url.as_ref())?;
      let official_route = crate::transport::proxy::to_official_route(&handle.route);
+-- 
+2.48.1
+
