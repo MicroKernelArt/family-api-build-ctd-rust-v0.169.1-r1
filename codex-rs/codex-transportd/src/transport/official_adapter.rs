@@ -250,9 +250,12 @@ pub struct TrailingHeaderAuth {
 }
 
 impl codex_api::AuthProvider for TrailingHeaderAuth {
-    fn add_auth_headers(&self, headers: &mut HeaderMap) {
+    fn add_auth_headers(
+        &self,
+        headers: &mut HeaderMap,
+    ) -> Result<(), codex_api::AuthError> {
         // 遥测（`codex_api::auth_header_telemetry`）必须看到与出站一致的 auth 头。
-        self.inner.add_auth_headers(headers);
+        self.inner.add_auth_headers(headers)
     }
 
     fn apply_auth(&self, request: codex_client::Request) -> codex_api::AuthProviderFuture<'_> {
