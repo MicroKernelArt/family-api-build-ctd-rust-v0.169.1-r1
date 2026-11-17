@@ -20,6 +20,7 @@ use http::HeaderMap as ApiHeaderMap;
 use http::HeaderValue;
 use serde::Serialize;
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::client::X_CODEX_INSTALLATION_ID_HEADER;
 use crate::client::X_CODEX_PARENT_THREAD_ID_HEADER;
