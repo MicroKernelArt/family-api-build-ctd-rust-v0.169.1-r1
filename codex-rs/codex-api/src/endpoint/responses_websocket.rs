@@ -508,7 +508,9 @@ impl ResponsesWebsocketClient {
 
         let mut headers =
             merge_request_headers(&self.provider.headers, extra_headers, default_headers);
-        self.auth.add_auth_headers(&mut headers);
+        // Fail closed: 0.169 makes auth header construction fallible and the
+        // trait contract forbids sending a request when it errors.
+        self.auth.add_auth_headers(&mut headers)?;
 
         let mut request = ws_url
             .as_str()
@@ -577,7 +579,9 @@ impl ResponsesWebsocketClient {
 
         let mut headers =
             merge_request_headers(&self.provider.headers, extra_headers, default_headers);
-        self.auth.add_auth_headers(&mut headers);
+        // Fail closed: 0.169 makes auth header construction fallible and the
+        // trait contract forbids sending a request when it errors.
+        self.auth.add_auth_headers(&mut headers)?;
 
         let mut request = ws_url
             .as_str()
