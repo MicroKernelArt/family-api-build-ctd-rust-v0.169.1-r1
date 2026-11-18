@@ -45,7 +45,16 @@ fi
 
 ctd_configure_build_profile "$REPO"
 ctd_assert_native_build_daemon
-V8_NAME="librusty_v8_release_${TRIPLE}.a.gz"
+# 0.169 起 rusty_v8 由 Codex 自己构建并发布，profile 与上游
+# .github/actions/setup-rusty-v8/action.yml 保持一致：
+#   archive: librusty_v8_ptrcomp_sandbox_release_<triple>.a.gz
+#   binding: src_binding_ptrcomp_sandbox_release_<triple>.rs
+#   checksums: rusty_v8_ptrcomp_sandbox_release_<triple>.sha256
+# 来源是 openai/codex 的 rusty-v8-v<version> release，而不是 denoland/rusty_v8。
+V8_PROFILE="ptrcomp_sandbox_release"
+V8_NAME="librusty_v8_${V8_PROFILE}_${TRIPLE}.a.gz"
+V8_BINDING_NAME="src_binding_${V8_PROFILE}_${TRIPLE}.rs"
+V8_CHECKSUMS_NAME="rusty_v8_${V8_PROFILE}_${TRIPLE}.sha256"
 V8_EXPECTED_SHA="$(sed -n "s/^v8_archive_sha256_${TRIPLE}: //p" "$REPO/patches/transportd/series.yaml" | tr -d ' ')"
 [ -n "$V8_EXPECTED_SHA" ] || { echo "FAIL: series.yaml 缺少 v8_archive_sha256_${TRIPLE}"; exit 1; }
 
@@ -74,20 +83,61 @@ if [ "${1:-}" = "prepare" ]; then
     echo "FAIL: 期望 Cargo.lock 中恰好一个 v8 包：$REPO/codex-rs/Cargo.lock"; exit 1
   }
   [ -n "$V8_PIN" ] || { echo "FAIL: 无法从 Cargo.lock 解析 v8 版本"; exit 1; }
-  V8_RELEASE_TAG="v${V8_PIN}"
+  V8_RELEASE_TAG="rusty-v8-v${V8_PIN}"
   echo "   v8 release tag=${V8_RELEASE_TAG}（Cargo.lock resolved v8=${V8_PIN}）"
-  V8_URL="https://github.com/denoland/rusty_v8/releases/download/${V8_RELEASE_TAG}/${V8_NAME}"
+  V8_BASE_URL="https://github.com/openai/codex/releases/download/${V8_RELEASE_TAG}"
   V8_ARCHIVE="$V8_CACHE/${V8_NAME}"
+  V8_BINDING="$V8_CACHE/${V8_BINDING_NAME}"
+  V8_CHECKSUMS="$V8_CACHE/${V8_CHECKSUMS_NAME}"
+  V8_TRUSTED_MANIFESTS="$REPO/third_party/v8/rusty_v8_${V8_PIN//./_}_release_manifests.sha256"
+  [ -f "$V8_TRUSTED_MANIFESTS" ] || {
+    echo "FAIL: 缺少可信 v8 release manifest：$V8_TRUSTED_MANIFESTS"; exit 1; }
+
+  # 先取校验清单，并用仓库内的可信 manifest 校验它的摘要（与上游
+  # setup-rusty-v8 action 的 expected_manifest_checksum 检查同源）。
+  EXPECTED_MANIFEST_SHA="$(awk -v name="$V8_CHECKSUMS_NAME" '$2 == name { print $1 }' "$V8_TRUSTED_MANIFESTS")"
+  [ -n "$EXPECTED_MANIFEST_SHA" ] || {
+    echo "FAIL: ${V8_TRUSTED_MANIFESTS} 中没有 ${V8_CHECKSUMS_NAME}"; exit 1; }
+  V8_CHECKSUMS_SHA=""
+  if [ -f "$V8_CHECKSUMS" ]; then
+    V8_CHECKSUMS_SHA="$(shasum -a 256 "$V8_CHECKSUMS" | awk '{print $1}')"
+  fi
+  if [ "$V8_CHECKSUMS_SHA" != "$EXPECTED_MANIFEST_SHA" ]; then
+    V8_CHECKSUMS_TMP="$V8_CHECKSUMS.tmp"
+    echo "   下载 ${V8_CHECKSUMS_NAME}"
+    curl -fsSL --retry 3 --max-time 300 "${V8_BASE_URL}/${V8_CHECKSUMS_NAME}" -o "$V8_CHECKSUMS_TMP"
+    ACTUAL_MANIFEST_SHA="$(shasum -a 256 "$V8_CHECKSUMS_TMP" | awk '{print $1}')"
+    [ "$ACTUAL_MANIFEST_SHA" = "$EXPECTED_MANIFEST_SHA" ] || {
+      echo "FAIL: ${V8_CHECKSUMS_NAME} SHA256 不匹配（期望 ${EXPECTED_MANIFEST_SHA} 实际 ${ACTUAL_MANIFEST_SHA}）"
+      rm -f "$V8_CHECKSUMS_TMP"
+      exit 1
+    }
+    mv "$V8_CHECKSUMS_TMP" "$V8_CHECKSUMS"
+  fi
+  [ "$(wc -l < "$V8_CHECKSUMS" | tr -d ' ')" -eq 2 ] || {
+    echo "FAIL: ${V8_CHECKSUMS_NAME} 应恰好包含两行校验和"; exit 1; }
+  EXPECTED_ARCHIVE_SHA="$(awk -v name="$V8_NAME" '$2 == name { print $1 }' "$V8_CHECKSUMS")"
+  [ -n "$EXPECTED_ARCHIVE_SHA" ] || {
+    echo "FAIL: ${V8_CHECKSUMS_NAME} 中没有 ${V8_NAME}"; exit 1; }
+  [ "$EXPECTED_ARCHIVE_SHA" = "$V8_EXPECTED_SHA" ] || {
+    echo "FAIL: series.yaml 的 v8 hash 与 release manifest 不一致（series=${V8_EXPECTED_SHA} manifest=${EXPECTED_ARCHIVE_SHA}）"
+    exit 1
+  }
+  EXPECTED_BINDING_SHA="$(awk -v name="$V8_BINDING_NAME" '$2 == name { print $1 }' "$V8_CHECKSUMS")"
+  [ -n "$EXPECTED_BINDING_SHA" ] || {
+    echo "FAIL: ${V8_CHECKSUMS_NAME} 中没有 ${V8_BINDING_NAME}"; exit 1; }
+
   V8_CACHE_SHA=""
   if [ -f "$V8_ARCHIVE" ]; then
     V8_CACHE_SHA="$(shasum -a 256 "$V8_ARCHIVE" | awk '{print $1}')"
   fi
-  if [ "$V8_CACHE_SHA" = "$V8_EXPECTED_SHA" ]; then
+  if [ "$V8_CACHE_SHA" = "$V8_EXPECTED_SHA" ] && [ -s "$V8_BINDING" ]; then
     echo "   reuse ${V8_NAME}（SHA256=${V8_EXPECTED_SHA}）"
+    echo "   reuse ${V8_BINDING_NAME}"
   else
     echo "   下载 ${V8_NAME}（SHA256=${V8_EXPECTED_SHA}）"
     V8_TMP="$V8_ARCHIVE.tmp"
-    curl -fsSL --retry 3 --max-time 300 "$V8_URL" -o "$V8_TMP"
+    curl -fsSL --retry 3 --max-time 300 "${V8_BASE_URL}/${V8_NAME}" -o "$V8_TMP"
     ACTUAL="$(shasum -a 256 "$V8_TMP" | awk '{print $1}')"
     [ "$ACTUAL" = "$V8_EXPECTED_SHA" ] || {
       rm -f "$V8_TMP"
@@ -95,8 +145,25 @@ if [ "${1:-}" = "prepare" ]; then
       exit 1
     }
     mv "$V8_TMP" "$V8_ARCHIVE"
+    echo "   下载 ${V8_BINDING_NAME}"
+    V8_BINDING_TMP="$V8_BINDING.tmp"
+    curl -fsSL --retry 3 --max-time 300 "${V8_BASE_URL}/${V8_BINDING_NAME}" -o "$V8_BINDING_TMP"
+    BINDING_ACTUAL="$(shasum -a 256 "$V8_BINDING_TMP" | awk '{print $1}')"
+    [ "$BINDING_ACTUAL" = "$EXPECTED_BINDING_SHA" ] || {
+      rm -f "$V8_BINDING_TMP"
+      echo "FAIL: v8 binding SHA256 不匹配（期望 ${EXPECTED_BINDING_SHA} 实际 ${BINDING_ACTUAL}）"
+      exit 1
+    }
+    mv "$V8_BINDING_TMP" "$V8_BINDING"
   fi
-  echo "   cached: $V8_CACHE/${V8_NAME} ($(wc -c < "$V8_CACHE/${V8_NAME}" | tr -d ' ') bytes) ✓"
+  # 缓存命中时也复核一遍，防止损坏的 binding 被静默复用。
+  BINDING_ACTUAL="$(shasum -a 256 "$V8_BINDING" | awk '{print $1}')"
+  [ "$BINDING_ACTUAL" = "$EXPECTED_BINDING_SHA" ] || {
+    echo "FAIL: 缓存 v8 binding SHA256 不匹配（期望 ${EXPECTED_BINDING_SHA} 实际 ${BINDING_ACTUAL}）"
+    exit 1
+  }
+  echo "   cached: ${V8_ARCHIVE} ($(wc -c < "$V8_ARCHIVE" | tr -d ' ') bytes) ✓"
+  echo "   cached: ${V8_BINDING} ($(wc -c < "$V8_BINDING" | tr -d ' ') bytes) ✓"
   # R12-F3：Cargo closure 必须来自 source_commit 的不可变 clone（与 build
   # 同一 source——prepare 对当前仓库 fetch 会混入未发布变更）。
   SRC_COMMIT="$(ctd_resolve_source_commit "$REPO")"
@@ -149,8 +216,16 @@ if [ "${1:-}" = "build" ]; then
   # R10-F7：build 命令必须消费预置归档——未 prepare 直接 FAIL（非仅阶段命名）。
   [ -f "$V8_CACHE/${V8_NAME}" ] || {
     echo "FAIL: v8 archive 未预置（先运行: deploy/build-sidecar.sh prepare）"; exit 1; }
+  [ -f "$V8_CACHE/${V8_BINDING_NAME}" ] || {
+    echo "FAIL: v8 binding 未预置（先运行: deploy/build-sidecar.sh prepare）"; exit 1; }
+  [ -f "$V8_CACHE/${V8_CHECKSUMS_NAME}" ] || {
+    echo "FAIL: v8 checksums 未预置（先运行: deploy/build-sidecar.sh prepare）"; exit 1; }
   ACTUAL="$(shasum -a 256 "$V8_CACHE/${V8_NAME}" | awk '{print $1}')"
   [ "$ACTUAL" = "$V8_EXPECTED_SHA" ] || { echo "FAIL: 预置 v8 SHA256 漂移"; exit 1; }
+  EXPECTED_BINDING_SHA="$(awk -v name="$V8_BINDING_NAME" '$2 == name { print $1 }' "$V8_CACHE/${V8_CHECKSUMS_NAME}")"
+  [ -n "$EXPECTED_BINDING_SHA" ] || { echo "FAIL: 预置 v8 checksums 缺少 ${V8_BINDING_NAME}"; exit 1; }
+  BINDING_ACTUAL="$(shasum -a 256 "$V8_CACHE/${V8_BINDING_NAME}" | awk '{print $1}')"
+  [ "$BINDING_ACTUAL" = "$EXPECTED_BINDING_SHA" ] || { echo "FAIL: 预置 v8 binding SHA256 漂移"; exit 1; }
 else
   echo "FAIL: 用法 build-sidecar.sh {self-test-volume|prepare|build --mode <local-cargo|buildx-experimental>}"
   exit 1
@@ -256,6 +331,7 @@ if [ "$MODE" = "local-cargo" ]; then
     -e CODEX_TRANSPORTD_RELEASE_ID="$RELEASE_ID" \
     -e CTD_EXPECTED_UNAME="$EXPECTED_UNAME" \
     -e "RUSTY_V8_ARCHIVE=/v8-cache/${V8_NAME}" \
+    -e "RUSTY_V8_SRC_BINDING_PATH=/v8-cache/${V8_BINDING_NAME}" \
     "$RUST_IMAGE" \
     bash -c "git config --global --add safe.directory /src >/dev/null 2>&1 || true; actual=\$(uname -m); [ \"\$actual\" = \"\$CTD_EXPECTED_UNAME\" ] || { echo \"FAIL: builder uname=\$actual expected=\$CTD_EXPECTED_UNAME\"; exit 1; }; export PATH=\"/usr/local/rustup/toolchains/1.95.0-${TRIPLE}/bin:\$PATH\"; cd /src/codex-rs && cargo build --release --locked --offline -p codex-transportd"
   ELF="$TARGET_DIR/release/codex-transportd"
