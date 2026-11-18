@@ -25,7 +25,7 @@ pub(crate) const COMPACT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1200);
 ///
 /// ## 头序 —— **推断**（官方 compact 无样本）
 ///
-/// 官方 `rust-v0.169.0` **不存在** `/responses/compact` 请求：
+/// 官方 `rust-v0.169.1` **不存在** `/responses/compact` 请求：
 /// pristine `codex-api` 无 compact client，`official-1592/flows-*.jsonl` 里
 /// 没有任何该 route 的请求行（`docs/23 §3.2` U2）。⇒ 本表按 **responses 的
 /// 官方确定性构造序**（[`responses::outbound_headers`] /
